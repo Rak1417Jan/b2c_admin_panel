@@ -4,6 +4,7 @@ import { CreditCard, LogOut, FolderClosed, UsersRound } from "lucide-react";
 import AgentStats from "../components/AgentMangament/AgentStats";
 import CaseManagement from "../components/CaseManagement/CaseManagement";
 import { logoutAdmin } from "../services/LoginApiServices";
+import logoImg from "../assets/logo/logo.png";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -28,16 +29,12 @@ export default function Dashboard() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700">
-              <CreditCard className="h-5 w-5 text-white" />
-            </div>
             <div className="leading-tight">
-              <p className="text-[15px] font-semibold text-emerald-700">
-                Bizz 2 Credit
-              </p>
-              <p className="text-[12px] text-gray-500 -mt-0.5">
-                CPV Admin Panel
-              </p>
+               <img
+                            src={logoImg}
+                            alt="Bizz 2 Credit Logo Text"
+                            className="h-12 object-contain"
+                          />
             </div>
           </div>
 

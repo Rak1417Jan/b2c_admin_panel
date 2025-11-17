@@ -1,5 +1,5 @@
 // src/components/AgentMangament/AgentStats.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { UsersRound, Clock2, CheckCircle2 } from "lucide-react";
 import AgentProfiles from "./AgentProfiles.jsx";
@@ -9,6 +9,22 @@ import EditAgentModal from "./EditAgentModal.jsx";
 import AddAgentModal from "./AddAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+
+/* --------- Skeleton metric cards for loading state --------- */
+
+function MetricCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <div className="h-3 w-24 rounded-full bg-gray-200" />
+          <div className="mt-3 h-4 w-16 rounded-full bg-gray-200" />
+        </div>
+        <div className="h-10 w-10 rounded-xl bg-gray-100" />
+      </div>
+    </div>
+  );
+}
 
 export default function AgentStats({
   title = "Agent Management",
@@ -21,7 +37,7 @@ export default function AgentStats({
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setErr("");
@@ -37,11 +53,11 @@ export default function AgentStats({
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const metrics = useMemo(() => {
     let totalAgents = 0;
@@ -49,8 +65,12 @@ export default function AgentStats({
     let totalPending = 0;
     for (const a of agents) {
       totalAgents += 1;
-      totalCompleted += Number(a?.case_stats?.completed_cases || a?.completed_cases || 0);
-      totalPending += Number(a?.case_stats?.pending_cases || a?.pending_cases || 0);
+      totalCompleted += Number(
+        a?.case_stats?.completed_cases || a?.completed_cases || 0
+      );
+      totalPending += Number(
+        a?.case_stats?.pending_cases || a?.pending_cases || 0
+      );
     }
     return { totalAgents, totalCompleted, totalPending };
   }, [agents]);
@@ -61,7 +81,12 @@ export default function AgentStats({
     if (!editing?.agent_id) return;
     try {
       setSaving(true);
-      await updateAgent(editing.agent_id, { agent_name, contact_number, status, password });
+      await updateAgent(editing.agent_id, {
+        agent_name,
+        contact_number,
+        status,
+        password,
+      });
       setEditing(null);
       await load();
     } catch (error) {
@@ -75,7 +100,13 @@ export default function AgentStats({
   const onAddNew = () => setAdding(true);
 
   // Include `agency` when creating an agent
-  const onCreateAgent = async ({ agent_name, agent_email, contact_number, agency, password }) => {
+  const onCreateAgent = async ({
+    agent_name,
+    agent_email,
+    contact_number,
+    agency,
+    password,
+  }) => {
     if (saving) return;
     try {
       setSaving(true);
@@ -100,55 +131,71 @@ export default function AgentStats({
     <>
       {/* Cards */}
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {/* Total Agents */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Agents</p>
-              <p className="mt-3 text-lg font-semibold text-gray-800">
-                {fmt(metrics.totalAgents)}
-              </p>
+        {loading ? (
+          <>
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+            <MetricCardSkeleton />
+          </>
+        ) : (
+          <>
+            {/* Total Agents */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Agents</p>
+                  <p className="mt-3 text-lg font-semibold text-gray-800">
+                    {fmt(metrics.totalAgents)}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                  <UsersRound className="h-5 w-5 text-indigo-600" />
+                </div>
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
-              <UsersRound className="h-5 w-5 text-indigo-600" />
-            </div>
-          </div>
-        </div>
 
-        {/* Cases Completed */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Cases Completed</p>
-              <p className="mt-3 text-lg font-semibold text-gray-800">
-                {fmt(metrics.totalCompleted)}
-              </p>
+            {/* Cases Completed */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Cases Completed</p>
+                  <p className="mt-3 text-lg font-semibold text-gray-800">
+                    {fmt(metrics.totalCompleted)}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                </div>
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            </div>
-          </div>
-        </div>
 
-        {/* Pending Cases */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Pending Cases</p>
-              <p className="mt-3 text-lg font-semibold text-gray-800">
-                {fmt(metrics.totalPending)}
-              </p>
+            {/* Pending Cases */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Pending Cases</p>
+                  <p className="mt-3 text-lg font-semibold text-gray-800">
+                    {fmt(metrics.totalPending)}
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                  <Clock2 className="h-5 w-5 text-amber-600" />
+                </div>
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
-              <Clock2 className="h-5 w-5 text-amber-600" />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Errors / Loading */}
       {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
-      {loading && <p className="mt-4 text-sm text-gray-500">Loading agents…</p>}
+
+      {loading && !err && (
+        <div className="mt-4 inline-flex items-center gap-2 text-sm text-gray-500">
+          <div className="h-4 w-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <span>Loading agents…</span>
+        </div>
+      )}
 
       {/* Table after cards */}
       <AgentProfiles
@@ -159,7 +206,7 @@ export default function AgentStats({
         agents={agents.map((a) => ({
           id: a.agent_id,
           name: a.agent_name,
-          agency: a.agency, // NEW: pass through agency (can be undefined)
+          agency: a.agency, // pass through agency (can be undefined)
           email: a.agent_email,
           phone: a.contact_number,
           status: a.status,
@@ -169,6 +216,7 @@ export default function AgentStats({
           __raw: a,
         }))}
         onEdit={onEdit}
+        loading={loading} // IMPORTANT: pass loading so skeleton table shows
       />
 
       {/* Modals */}

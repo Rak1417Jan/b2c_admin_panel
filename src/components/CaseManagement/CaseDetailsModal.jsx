@@ -88,9 +88,9 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-5xl rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-white to-gray-50">
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">
               {fileMeta?.original_name || "Document"}
@@ -110,7 +110,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
           </button>
         </div>
 
-        <div className="p-4">{viewerBody}</div>
+        <div className="p-4 bg-gray-50">{viewerBody}</div>
       </div>
     </div>
   );
@@ -348,7 +348,15 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
     if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
     return `${(b / (1024 * 1024)).toFixed(1)} MB`;
   };
-  const prettyDate = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
+  const prettyDate = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }) : "—");
   const googleMapsLink = (lat, lng) =>
     typeof lat === "number" && typeof lng === "number"
       ? `https://maps.google.com/?q=${lat},${lng}`
@@ -500,10 +508,10 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-5xl rounded-2xl bg-white shadow-xl border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-5xl rounded-2xl bg-gradient-to-br from-white to-gray-50 shadow-2xl border border-gray-200">
         {/* Header (single close) */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-white to-gray-50">
           <div className="min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 truncate">Case Details</h3>
             <p className="text-sm text-gray-500 truncate">
@@ -522,9 +530,9 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="px-6 py-5 space-y-5 max-h-[72vh] overflow-y-auto">
+        <div className="px-6 py-5 space-y-5 max-h-[72vh] overflow-y-auto bg-gray-50">
           {/* Applicant summary */}
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <InfoRow label="Applicant" value={caseData.case_applicant_name} />
               <InfoRow label="Contact" value={caseData.case_applicant_contact} />
@@ -535,9 +543,10 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 label="Loan Amount"
                 value={`₹${Number(caseData.loan_amount || 0).toLocaleString("en-IN")}`}
               />
-              <InfoRow label="Created At" value={caseData.created_at} />
-              <InfoRow label="Assigned At" value={caseData.assigned_at} />
-              <InfoRow label="Completed At" value={caseData.completed_at} />
+              {/* UPDATED: pretty date/time display */}
+              <InfoRow label="Created At" value={prettyDate(caseData.created_at)} />
+              <InfoRow label="Assigned At" value={prettyDate(caseData.assigned_at)} />
+              <InfoRow label="Completed At" value={prettyDate(caseData.completed_at)} />
             </div>
             <div className="mt-3">
               <InfoRow label="Address" value={caseData.address} />
