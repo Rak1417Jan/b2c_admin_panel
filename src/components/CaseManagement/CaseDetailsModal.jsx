@@ -8,9 +8,11 @@ import { fetchCaseFiles, fetchFileBlob } from "../../services/CaseService";
 
 export function InfoRow({ label, value }) {
   return (
-    <div className="grid grid-cols-12 gap-3 py-1.5 items-start">
-      <span className="col-span-5 text-gray-500 text-sm">{label}</span>
-      <span className="col-span-7 text-gray-900 text-sm font-medium text-right break-words">
+    <div className="flex items-start gap-3 py-2">
+      <span className="text-gray-600 text-sm font-medium min-w-[140px] flex-shrink-0">
+        {label}:
+      </span>
+      <span className="text-gray-900 text-sm font-semibold flex-1 break-words">
         {value ?? "—"}
       </span>
     </div>
@@ -23,11 +25,11 @@ InfoRow.propTypes = {
 
 export function Section({ title, children }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+        <h4 className="text-base font-bold text-gray-900 tracking-tight">{title}</h4>
       </div>
-      <div className="px-4 py-4">{children}</div>
+      <div className="px-5 py-5">{children}</div>
     </div>
   );
 }
@@ -55,7 +57,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
           <img
             src={objectUrl}
             alt={fileMeta?.original_name || "document"}
-            className="max-h-[70vh] w-full object-contain rounded-lg border border-gray-200"
+            className="max-h-[70vh] w-full object-contain rounded-lg border border-gray-200 shadow-lg"
           />
         </div>
       );
@@ -64,7 +66,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
         <iframe
           title={fileMeta?.original_name || "PDF"}
           src={objectUrl}
-          className="w-full h-[70vh] rounded-lg border border-gray-200"
+          className="w-full h-[70vh] rounded-lg border border-gray-200 shadow-lg"
         />
       );
     } else {
@@ -77,7 +79,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
           <a
             href={objectUrl}
             download={downloadName || fileMeta?.original_name || "file"}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition shadow-sm"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 transition-all shadow-sm hover:shadow"
           >
             <FileDown className="h-4 w-4" />
             Download
@@ -90,27 +92,27 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-5xl rounded-2xl bg-white border border-gray-200 shadow-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-white to-gray-50">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">
+            <h3 className="text-lg font-bold text-gray-900 truncate">
               {fileMeta?.original_name || "Document"}
             </h3>
-            <p className="text-sm text-gray-500 truncate">
-              Type: <span className="font-medium text-gray-700">{fileMeta?.file_type || "—"}</span>
+            <p className="text-sm text-gray-600 truncate mt-0.5">
+              Type: <span className="font-semibold text-gray-800">{fileMeta?.file_type || "—"}</span>
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-gray-300 text-gray-700 hover:bg-white hover:shadow-md transition-all"
             aria-label="Close viewer"
             title="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="p-4 bg-gray-50">{viewerBody}</div>
+        <div className="p-6 bg-gray-50">{viewerBody}</div>
       </div>
     </div>
   );
@@ -377,15 +379,15 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
 
   if (docLoading && docs.length === 0) {
     docsContent = (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {skeletonKeysRef.current.map((k) => (
-          <div key={k} className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="h-36 w-full bg-gray-100 rounded-lg animate-pulse" />
-            <div className="mt-3 h-4 w-40 bg-gray-100 rounded animate-pulse" />
+          <div key={k} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="h-40 w-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg animate-pulse" />
+            <div className="mt-4 h-4 w-40 bg-gray-100 rounded animate-pulse" />
             <div className="mt-2 h-3 w-24 bg-gray-100 rounded animate-pulse" />
             <div className="mt-2 h-3 w-28 bg-gray-100 rounded animate-pulse" />
-            <div className="mt-3 flex justify-end">
-              <div className="h-8 w-20 bg-gray-100 rounded-md animate-pulse" />
+            <div className="mt-4 flex justify-end">
+              <div className="h-9 w-20 bg-gray-100 rounded-lg animate-pulse" />
             </div>
           </div>
         ))}
@@ -395,7 +397,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
     docsContent = <p className="text-sm text-gray-600">No documents uploaded for this case.</p>;
   } else {
     docsContent = (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {docs.map((f) => {
           const badgeClass = fileTypeBadgeTone(f.file_type);
           const mapsHref = googleMapsLink(f?.geo_location?.lat, f?.geo_location?.lng);
@@ -408,7 +410,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
           if (hasLatLng) {
             geoNode = mapsHref ? (
               <a
-                className="text-blue-600 hover:underline"
+                className="text-blue-600 hover:text-blue-700 hover:underline font-medium transition-colors"
                 href={mapsHref}
                 target="_blank"
                 rel="noreferrer"
@@ -425,9 +427,9 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
 
           // Icon by type
           const thumbIcon = isImageName(f.original_name || "") ? (
-            <ImageIcon className="h-6 w-6 text-gray-600" />
+            <ImageIcon className="h-5 w-5 text-gray-600" />
           ) : (
-            <FileText className="h-6 w-6 text-gray-600" />
+            <FileText className="h-5 w-5 text-gray-600" />
           );
 
           // Inline preview: loading shimmer → image (if available)
@@ -436,7 +438,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
           if (pv?.isImage) {
             if (pv.loading) {
               inlinePreview = (
-                <div className="mt-3 h-44 w-full rounded-lg border border-gray-200 overflow-hidden relative">
+                <div className="mt-4 h-48 w-full rounded-lg border border-gray-200 overflow-hidden relative shadow-sm">
                   <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
                 </div>
               );
@@ -445,7 +447,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 <img
                   src={pv.url}
                   alt={f.original_name || "document"}
-                  className="mt-3 h-44 w-full object-cover rounded-lg border border-gray-200"
+                  className="mt-4 h-48 w-full object-cover rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
                 />
               );
             }
@@ -454,34 +456,34 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
           return (
             <div
               key={f._id || f.file_id}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-lg transition-all"
             >
               {/* Header row */}
               <div className="flex items-center justify-between">
                 <span
-                  className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium ${badgeClass}`}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${badgeClass}`}
                   title={f.file_type}
                 >
                   {thumbIcon}
                   {f.file_type || "document"}
                 </span>
-                <span className="text-xs text-gray-500">{prettyBytes(f.file_size)}</span>
+                <span className="text-xs font-medium text-gray-500">{prettyBytes(f.file_size)}</span>
               </div>
 
               {/* Name + Uploaded */}
-              <div className="mt-3">
-                <div className="text-sm font-semibold text-gray-900 break-words">
+              <div className="mt-4">
+                <div className="text-sm font-bold text-gray-900 break-words">
                   {f.original_name || "—"}
                 </div>
-                <div className="text-xs text-gray-500 mt-0.5">
+                <div className="text-xs text-gray-500 mt-1 font-medium">
                   Uploaded: {prettyDate(f.uploaded_at)}
                 </div>
               </div>
 
               {/* Geolocation */}
               <div className="mt-3 flex items-center gap-2 text-sm text-gray-700">
-                <MapPin className="h-4 w-4 text-blue-500" />
-                {geoNode}
+                <MapPin className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                <span className="break-all">{geoNode}</span>
               </div>
 
               {/* Inline preview (images with loading animation) */}
@@ -489,11 +491,11 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
 
               {/* Actions */}
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-[11px] text-gray-500">File ID: {f.file_id}</span>
+                <span className="text-[10px] text-gray-500 font-medium">ID: {f.file_id}</span>
                 <button
                   type="button"
                   onClick={() => viewDocument(f)}
-                  className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   title="View document"
                 >
                   <Eye className="h-4 w-4" />
@@ -508,32 +510,32 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-2xl bg-gradient-to-br from-white to-gray-50 shadow-2xl border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="w-full max-w-6xl rounded-2xl bg-white shadow-2xl border border-gray-300 overflow-hidden">
         {/* Header (single close) */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-white to-gray-50">
+        <div className="px-7 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-gray-900 truncate">Case Details</h3>
-            <p className="text-sm text-gray-500 truncate">
-              Case ID: <span className="font-medium text-gray-700">{caseData.case_id}</span>
+            <h3 className="text-xl font-bold text-gray-900 truncate tracking-tight">Case Details</h3>
+            <p className="text-sm text-gray-600 truncate mt-1">
+              Case ID: <span className="font-bold text-gray-800">{caseData.case_id}</span>
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center h-9 w-9 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center justify-center h-10 w-10 rounded-full border border-gray-300 text-gray-700 hover:bg-white hover:shadow-lg transition-all"
             aria-label="Close case details"
             title="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Scrollable content */}
-        <div className="px-6 py-5 space-y-5 max-h-[72vh] overflow-y-auto bg-gray-50">
+        <div className="px-7 py-6 space-y-6 max-h-[75vh] overflow-y-auto bg-gradient-to-br from-gray-50 to-white">
           {/* Applicant summary */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="space-y-1">
               <InfoRow label="Applicant" value={caseData.case_applicant_name} />
               <InfoRow label="Contact" value={caseData.case_applicant_contact} />
               <InfoRow label="Status" value={caseData.status} />
@@ -543,30 +545,23 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 label="Loan Amount"
                 value={`₹${Number(caseData.loan_amount || 0).toLocaleString("en-IN")}`}
               />
-              {/* UPDATED: pretty date/time display */}
               <InfoRow label="Created At" value={prettyDate(caseData.created_at)} />
               <InfoRow label="Assigned At" value={prettyDate(caseData.assigned_at)} />
               <InfoRow label="Completed At" value={prettyDate(caseData.completed_at)} />
-            </div>
-            <div className="mt-3">
               <InfoRow label="Address" value={caseData.address} />
+              {caseData.remarks && <InfoRow label="Remarks" value={caseData.remarks} />}
             </div>
-            {caseData.remarks ? (
-              <div className="mt-3">
-                <InfoRow label="Remarks" value={caseData.remarks} />
-              </div>
-            ) : null}
           </div>
 
           {/* Uploaded Documents */}
           <Section title="Uploaded Documents">
-            {docError ? <div className="mb-3 text-sm text-red-600">{docError}</div> : null}
+            {docError ? <div className="mb-4 text-sm text-red-600 font-medium">{docError}</div> : null}
             {docsContent}
           </Section>
 
           {/* Demographic */}
           <Section title="Demographic Details">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
               <InfoRow label="Email" value={demographic_details?.contact_information?.email_id} />
               <InfoRow label="Mobile" value={demographic_details?.contact_information?.mobile_number} />
               <InfoRow label="Aadhaar Photo Match" value={aadhaarMatchText} />
@@ -576,9 +571,6 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 label="Family Members"
                 value={demographic_details?.personal_details?.number_of_family_members}
               />
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
               <InfoRow
                 label="Residence Type"
                 value={demographic_details?.address_details?.residence_address_type}
@@ -587,18 +579,16 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
               <InfoRow label="State" value={demographic_details?.address_details?.state} />
               <InfoRow label="District" value={demographic_details?.address_details?.district} />
               <InfoRow label="Pincode" value={demographic_details?.address_details?.pincode} />
-              <div className="md:col-span-3">
-                <InfoRow
-                  label="Residential Address"
-                  value={demographic_details?.address_details?.residential_address}
-                />
-              </div>
+              <InfoRow
+                label="Residential Address"
+                value={demographic_details?.address_details?.residential_address}
+              />
             </div>
           </Section>
 
           {/* Business */}
           <Section title="Business Details">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
               <InfoRow
                 label="Enterprise"
                 value={business_details?.enterprise_information?.enterprise_name}
@@ -632,12 +622,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 label="Additional Business"
                 value={business_details?.business_info?.additional_business}
               />
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-3">
-                <InfoRow label="Business Address" value={business_details?.business_address?.address} />
-              </div>
+              <InfoRow label="Business Address" value={business_details?.business_address?.address} />
               <InfoRow label="City" value={business_details?.business_address?.city} />
               <InfoRow label="District" value={business_details?.business_address?.district} />
               <InfoRow label="State" value={business_details?.business_address?.state} />
@@ -648,7 +633,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
 
           {/* Financial */}
           <Section title="Financial Details">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1">
               <InfoRow
                 label="Monthly Income (Business)"
                 value={financial_details?.business_financial_information?.monthly_income_from_business}

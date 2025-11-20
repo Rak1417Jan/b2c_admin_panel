@@ -2,11 +2,9 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CreditCard, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { loginAdmin } from "../services/LoginApiServices";
-import logoImg from "../assets/logo/logo.png"; // ✅ Your Logo
+import logoImg from "../assets/logo/logo.png";
 
-/* --------------------------------------------
-   VALIDATION HELPERS MOVED OUTSIDE COMPONENT
-----------------------------------------------*/
+/* ------------ VALIDATION -------------- */
 function isValidEmail(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return false;
@@ -21,22 +19,17 @@ function isValidPassword(value) {
   return passwordRegex.test(trimmed);
 }
 
-/* --------------------------------------------
-   MAIN COMPONENT
-----------------------------------------------*/
+/* ------------ MAIN COMPONENT -------------- */
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw] = useState(false);
+  const [showPw, setShowPw] = useState(false); // default hidden
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-
-  // field-level errors
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
 
   const navigate = useNavigate();
-
   const emailId = "login-email";
   const passwordId = "login-password";
 
@@ -88,13 +81,8 @@ export default function Login() {
       {/* LEFT PANEL */}
       <div className="hidden md:flex flex-col justify-between p-10 bg-gradient-to-br from-emerald-500 via-teal-500 to-blue-600 text-white">
         <div className="space-y-8">
-          {/* ✅ UPDATED — Using Logo instead of text */}
           <div className="flex items-center gap-3">
-            <img
-              src={logoImg}
-              alt="Bizz 2 Credit Logo Text"
-              className="h-12 object-contain"
-            />
+            <img src={logoImg} alt="Bizz 2 Credit Logo" className="h-12" />
           </div>
 
           <p className="text-white/90 max-w-xs leading-relaxed">
@@ -166,10 +154,7 @@ export default function Login() {
 
                 {/* PASSWORD */}
                 <div className="space-y-1.5">
-                  <label
-                    htmlFor={passwordId}
-                    className="block text-sm text-gray-700"
-                  >
+                  <label htmlFor={passwordId} className="block text-sm text-gray-700">
                     Password
                   </label>
                   <div
@@ -184,6 +169,7 @@ export default function Login() {
                         passwordError ? "text-red-500" : "text-gray-500"
                       }`}
                     />
+
                     <input
                       id={passwordId}
                       type={showPw ? "text" : "password"}
@@ -195,6 +181,8 @@ export default function Login() {
                         if (passwordError) setPasswordError("");
                       }}
                     />
+
+                    {/* 🔥 FIXED TOGGLE (OPPOSITE BEHAVIOR IMPLEMENTED) */}
                     <button
                       type="button"
                       onClick={() => setShowPw((s) => !s)}
@@ -202,12 +190,13 @@ export default function Login() {
                       aria-label={showPw ? "Hide password" : "Show password"}
                     >
                       {showPw ? (
-                        <EyeOff className="h-4 w-4 text-gray-600" />
+                        <Eye className="h-4 w-4 text-gray-600" /> // password visible
                       ) : (
-                        <Eye className="h-4 w-4 text-gray-600" />
+                        <EyeOff className="h-4 w-4 text-gray-600" /> // password hidden
                       )}
                     </button>
                   </div>
+
                   {passwordError && (
                     <p className="text-xs text-red-500 mt-1">{passwordError}</p>
                   )}

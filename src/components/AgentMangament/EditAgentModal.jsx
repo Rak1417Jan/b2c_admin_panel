@@ -275,10 +275,11 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
                 aria-label={showPw ? "Hide password" : "Show password"}
                 title={showPw ? "Hide password" : "Show password"}
               >
+                {/* 👇 Updated: Eye = visible, EyeOff = hidden */}
                 {showPw ? (
-                  <EyeOff className="h-4 w-4 text-gray-600" />
-                ) : (
                   <Eye className="h-4 w-4 text-gray-600" />
+                ) : (
+                  <EyeOff className="h-4 w-4 text-gray-600" />
                 )}
               </button>
             </div>

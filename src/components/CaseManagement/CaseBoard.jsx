@@ -1,6 +1,15 @@
-import React, { useEffect, useRef } from "react";
+// src/components/CaseManagement/CaseBoard.jsx
+import React, { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
-import { Upload, UserRound, MapPin, Eye, RefreshCcw, PencilLine, FileText } from "lucide-react";
+import {
+  Upload,
+  UserRound,
+  MapPin,
+  Eye,
+  RefreshCcw,
+  PencilLine,
+  FileText,
+} from "lucide-react";
 
 /* --- local UI helpers (scoped) --- */
 const Chip = ({ children, tone = "gray" }) => {
@@ -28,14 +37,18 @@ Chip.propTypes = {
 };
 
 const SoftCard = ({ children }) => (
-  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">{children}</div>
+  <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+    {children}
+  </div>
 );
 SoftCard.propTypes = { children: PropTypes.node };
 
 /* --- tiny skeletons for first load (opt-in via `loading`) --- */
 const RowSkeleton = () => (
   <tr>
-    <td className="px-5 py-4"><div className="h-3 w-28 bg-gray-100 rounded animate-pulse" /></td>
+    <td className="px-5 py-4">
+      <div className="h-3 w-28 bg-gray-100 rounded animate-pulse" />
+    </td>
     <td className="px-5 py-4">
       <div className="flex items-center gap-3">
         <div className="h-8 w-8 rounded-full bg-gray-100 border border-gray-200" />
@@ -45,12 +58,24 @@ const RowSkeleton = () => (
         </div>
       </div>
     </td>
-    <td className="px-5 py-4"><div className="h-3 w-40 bg-gray-100 rounded animate-pulse" /></td>
-    <td className="px-5 py-4"><div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" /></td>
-    <td className="px-5 py-4"><div className="h-3 w-16 bg-gray-100 rounded animate-pulse" /></td>
-    <td className="px-5 py-4"><div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" /></td>
-    <td className="px-5 py-4"><div className="h-3 w-24 bg-gray-100 rounded animate-pulse" /></td>
-    <td className="px-5 py-4"><div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" /></td>
+    <td className="px-5 py-4">
+      <div className="h-3 w-40 bg-gray-100 rounded animate-pulse" />
+    </td>
+    <td className="px-5 py-4">
+      <div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" />
+    </td>
+    <td className="px-5 py-4">
+      <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
+    </td>
+    <td className="px-5 py-4">
+      <div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" />
+    </td>
+    <td className="px-5 py-4">
+      <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
+    </td>
+    <td className="px-5 py-4">
+      <div className="h-6 w-16 bg-gray-100 rounded-full animate-pulse" />
+    </td>
     <td className="px-5 py-4 text-right">
       <div className="flex justify-end gap-2">
         <div className="h-8 w-16 bg-gray-100 rounded-md animate-pulse" />
@@ -69,7 +94,7 @@ function makeKey() {
 }
 
 /**
- * CaseBoard: header + upload + fixed-height table/card (responsive)
+ * CaseBoard: header + filters (search + date range) + table/card + pagination
  */
 export default function CaseBoard({
   rows = [],
@@ -80,10 +105,18 @@ export default function CaseBoard({
   onRefresh,
   onEdit,
   onViewReport, // NEW
-  /** NEW (optional): show skeletons for first load */
   loading = false,
-  /** NEW (optional): automatically react to background revalidate */
   listenAutoRefresh = true,
+  // NEW: filters
+  search = "",
+  onSearch,
+  startDate,
+  endDate,
+  onDateChange,
+  // NEW: pagination
+  pagination,
+  page,
+  onPageChange,
 }) {
   // Auto-refresh when CaseService finishes a background revalidate (fires `cases:updated`)
   useEffect(() => {
@@ -103,6 +136,40 @@ export default function CaseBoard({
   const desktopSkeletonKeysRef = useRef(Array.from({ length: 8 }, makeKey));
   const mobileSkeletonKeysRef = useRef(Array.from({ length: 4 }, makeKey));
 
+  // Local search value with debounce
+  const [localSearch, setLocalSearch] = useState(search || "");
+  const searchTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    setLocalSearch(search || "");
+  }, [search]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, []);
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setLocalSearch(value);
+    if (!onSearch) return;
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = globalThis.setTimeout(() => {
+      onSearch(value.trim());
+    }, 500);
+  };
+
+  const handleStartDateChange = (e) => {
+    onDateChange?.("from", e.target.value);
+  };
+
+  const handleEndDateChange = (e) => {
+    onDateChange?.("to", e.target.value);
+  };
+
   const priorityTone = (p) => {
     if (p === "HIGH") return "red";
     if (p === "MED") return "amber";
@@ -119,14 +186,18 @@ export default function CaseBoard({
   /* ----------- Extracted rendering branches to avoid nested ternaries ----------- */
   let desktopTbodyContent;
   if (showSkeleton) {
-    desktopTbodyContent = desktopSkeletonKeysRef.current.map((k) => <RowSkeleton key={k} />);
+    desktopTbodyContent = desktopSkeletonKeysRef.current.map((k) => (
+      <RowSkeleton key={k} />
+    ));
   } else if (showEmpty) {
     desktopTbodyContent = (
       <tr>
         <td colSpan={9} className="px-5 py-10">
           <div className="flex flex-col items-center justify-center text-center">
             <p className="text-gray-700 font-medium">No cases to display</p>
-            <p className="text-gray-500 text-sm mt-1">Try refreshing to load the latest data.</p>
+            <p className="text-gray-500 text-sm mt-1">
+              Try refreshing to load the latest data.
+            </p>
           </div>
         </td>
       </tr>
@@ -138,7 +209,7 @@ export default function CaseBoard({
         ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
         : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500/30";
 
-      // NEW: Report button state (enabled only if Completed)
+      // Report button enabled only when Completed
       const reportButtonStateClass = isCompleted
         ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500/30"
         : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400";
@@ -224,13 +295,15 @@ export default function CaseBoard({
                 aria-disabled={isCompleted}
                 className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 transition shadow-sm focus:outline-none focus:ring-2 ${editButtonStateClass}`}
                 aria-label={`Edit case ${r.id}`}
-                title={isCompleted ? "Completed case cannot be edited" : "Edit / Assign"}
+                title={
+                  isCompleted ? "Completed case cannot be edited" : "Edit / Assign"
+                }
               >
                 <PencilLine className="h-4 w-4" />
                 Edit
               </button>
 
-              {/* NEW: View Report (enabled only when Completed) */}
+              {/* View Report (enabled only when Completed) */}
               <button
                 type="button"
                 onClick={() => isCompleted && onViewReport?.(r)}
@@ -238,7 +311,11 @@ export default function CaseBoard({
                 aria-disabled={!isCompleted}
                 className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 transition shadow-sm focus:outline-none focus:ring-2 ${reportButtonStateClass}`}
                 aria-label={`View report for case ${r.id}`}
-                title={isCompleted ? "View Report (PDF)" : "Report available only after completion"}
+                title={
+                  isCompleted
+                    ? "View Report (PDF)"
+                    : "Report available only after completion"
+                }
               >
                 <FileText className="h-4 w-4" />
                 View Report
@@ -255,7 +332,10 @@ export default function CaseBoard({
     mobileContent = (
       <div className="space-y-4">
         {mobileSkeletonKeysRef.current.map((k) => (
-          <div key={k} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div
+            key={k}
+            className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+          >
             <div className="flex items-center justify-between">
               <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
               <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
@@ -285,7 +365,9 @@ export default function CaseBoard({
     mobileContent = (
       <div className="flex flex-col items-center justify-center text-center py-10">
         <p className="text-gray-700 font-medium">No cases to display</p>
-        <p className="text-gray-500 text-sm mt-1">Try refreshing to load the latest data.</p>
+        <p className="text-gray-500 text-sm mt-1">
+          Try refreshing to load the latest data.
+        </p>
       </div>
     );
   } else {
@@ -297,13 +379,15 @@ export default function CaseBoard({
             ? "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
             : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500/30";
 
-          // NEW: Report button state (enabled only if Completed)
           const reportBtnStateClass = isCompleted
             ? "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500/30"
             : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400";
 
           return (
-            <div key={r.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div
+              key={r.id}
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            >
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-500">Case ID</div>
                 <div className="text-sm font-semibold text-gray-900">{r.id}</div>
@@ -338,7 +422,8 @@ export default function CaseBoard({
 
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-sm text-gray-600">
-                  Agent: <span className="font-medium text-gray-800">{r.agent}</span>
+                  Agent:{" "}
+                  <span className="font-medium text-gray-800">{r.agent}</span>
                 </span>
                 <Chip tone={statusTone(r.status)}>{r.status}</Chip>
               </div>
@@ -358,19 +443,24 @@ export default function CaseBoard({
                   disabled={isCompleted}
                   aria-disabled={isCompleted}
                   className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 transition shadow-sm focus:outline-none focus:ring-2 ${editBtnStateClass}`}
-                  title={isCompleted ? "Completed case cannot be edited" : "Edit / Assign"}
+                  title={
+                    isCompleted ? "Completed case cannot be edited" : "Edit / Assign"
+                  }
                 >
                   <PencilLine className="h-4 w-4" />
                   Edit
                 </button>
-                {/* NEW: View Report (enabled only when Completed) */}
                 <button
                   type="button"
                   onClick={() => isCompleted && onViewReport?.(r)}
                   disabled={!isCompleted}
                   aria-disabled={!isCompleted}
                   className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 transition shadow-sm focus:outline-none focus:ring-2 ${reportBtnStateClass}`}
-                  title={isCompleted ? "View Report (PDF)" : "Report available only after completion"}
+                  title={
+                    isCompleted
+                      ? "View Report (PDF)"
+                      : "Report available only after completion"
+                  }
                 >
                   <FileText className="h-4 w-4" />
                   View Report
@@ -383,13 +473,37 @@ export default function CaseBoard({
     );
   }
 
+  // ---------- Pagination values ----------
+  const currentPage = page || pagination?.current_page || 1;
+  const perPage =
+    pagination?.items_per_page || (rows.length > 0 ? rows.length : 8);
+  const totalItems =
+    typeof pagination?.total_items === "number"
+      ? pagination.total_items
+      : rows.length;
+  const totalPages =
+    pagination?.total_pages ||
+    (perPage > 0 ? Math.max(1, Math.ceil(totalItems / perPage)) : 1);
+  const canPrev =
+    currentPage > 1 && (pagination?.has_prev_page ?? currentPage > 1);
+  const canNext =
+    currentPage < totalPages &&
+    (pagination?.has_next_page ?? currentPage < totalPages);
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * perPage + 1;
+  const endItem =
+    totalItems === 0 ? 0 : Math.min(startItem + rows.length - 1, totalItems);
+
+  const showOverlay = loading && rows.length > 0;
+
   return (
     <SoftCard>
       {/* Section header + Upload + Refresh */}
       <div className="p-5 border-b border-gray-200">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Case Management</h2>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Case Management
+            </h2>
             <p className="text-sm text-gray-500">Manage and track all cases</p>
           </div>
 
@@ -406,7 +520,7 @@ export default function CaseBoard({
             </button>
             <button
               type="button"
-              onClick={() => onUploadExcel?.()}  // ✅ open modal only
+              onClick={() => onUploadExcel?.()} // open modal only
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
               title="Upload CSV"
               aria-label="Upload CSV"
@@ -418,23 +532,88 @@ export default function CaseBoard({
         </div>
       </div>
 
+      {/* Filters: search + date range */}
+      <div className="px-5 pt-3 pb-4 border-b border-gray-100">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="w-full md:max-w-xs">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Search (applicant / contact)
+            </label>
+            <input
+              type="text"
+              value={localSearch}
+              onChange={handleSearchChange}
+              placeholder="Search applicant name or contact…"
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Start date
+              </label>
+              <input
+                type="date"
+                value={startDate || ""}
+                onChange={handleStartDateChange}
+                className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                End date
+              </label>
+              <input
+                type="date"
+                value={endDate || ""}
+                onChange={handleEndDateChange}
+                className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Desktop/Table view — fixed height with vertical scroll + horizontal scroll, sticky header */}
-      <div className="hidden sm:block rounded-b-2xl">
-        <div className="relative overflow-x-auto">
+      <div className="hidden sm:block rounded-b-2xl relative">
+        <div
+          className={`relative overflow-x-auto transition ${
+            showOverlay ? "opacity-60" : "opacity-100"
+          }`}
+        >
           {/* Fixed height container for body; header stays sticky */}
           <div className="max-h-[520px] overflow-y-auto">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                 <tr className="text-left">
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Case ID</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Applicant</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Address</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Case Type</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Loan</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Priority</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Assigned Agent</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap">Status</th>
-                  <th className="px-5 py-3 font-medium whitespace-nowrap text-right">Actions</th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Case ID
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Applicant
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Address
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Case Type
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Loan
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Priority
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Assigned Agent
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 font-medium whitespace-nowrap text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
 
@@ -444,10 +623,93 @@ export default function CaseBoard({
             </table>
           </div>
         </div>
+
+        {/* Overlay loader when reloading with existing data */}
+        {showOverlay && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-lg">
+              <div className="h-5 w-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+              <p className="text-xs font-medium text-gray-600">
+                Updating cases…
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mobile/Card view */}
-      <div className="sm:hidden p-4">{mobileContent}</div>
+      <div className="sm:hidden p-4 relative">
+        <div className={showOverlay ? "opacity-60 transition" : "opacity-100 transition"}>
+          {mobileContent}
+        </div>
+        {showOverlay && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-lg">
+              <div className="h-5 w-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+              <p className="text-xs font-medium text-gray-600">
+                Updating cases…
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-5 py-3 border-t border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <p className="text-xs text-gray-500">
+            Showing{" "}
+            <span className="font-medium">
+              {startItem}-{endItem}
+            </span>{" "}
+            of <span className="font-medium">{totalItems}</span> cases
+          </p>
+          <div className="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              onClick={() =>
+                !loading &&
+                canPrev &&
+                onPageChange?.(Math.max(1, currentPage - 1))
+              }
+              disabled={!canPrev || loading}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, idx) => {
+              const pageNum = idx + 1;
+              const isActive = pageNum === currentPage;
+              return (
+                <button
+                  key={pageNum}
+                  type="button"
+                  onClick={() => !loading && onPageChange?.(pageNum)}
+                  className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium ${
+                    isActive
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() =>
+                !loading &&
+                canNext &&
+                onPageChange?.(Math.min(totalPages, currentPage + 1))
+              }
+              disabled={!canNext || loading}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </SoftCard>
   );
 }
@@ -473,9 +735,24 @@ CaseBoard.propTypes = {
   onView: PropTypes.func,
   onRefresh: PropTypes.func,
   onEdit: PropTypes.func,
-  onViewReport: PropTypes.func, // NEW
-  /** NEW: show skeletons for the very first load */
+  onViewReport: PropTypes.func,
   loading: PropTypes.bool,
-  /** NEW: listen to `cases:updated` and call onRefresh() */
   listenAutoRefresh: PropTypes.bool,
+  // NEW filters
+  search: PropTypes.string,
+  onSearch: PropTypes.func,
+  startDate: PropTypes.string,
+  endDate: PropTypes.string,
+  onDateChange: PropTypes.func,
+  // NEW pagination
+  pagination: PropTypes.shape({
+    current_page: PropTypes.number,
+    total_pages: PropTypes.number,
+    total_items: PropTypes.number,
+    items_per_page: PropTypes.number,
+    has_next_page: PropTypes.bool,
+    has_prev_page: PropTypes.bool,
+  }),
+  page: PropTypes.number,
+  onPageChange: PropTypes.func,
 };

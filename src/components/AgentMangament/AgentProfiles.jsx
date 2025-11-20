@@ -1,5 +1,5 @@
 // src/components/AgentMangament/AgentProfiles.jsx
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import {
   UserPlus,
@@ -10,6 +10,9 @@ import {
   BarChart3,
   PencilLine,
   RefreshCcw,
+  Search as SearchIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -128,6 +131,26 @@ function SkeletonMobileCard() {
   );
 }
 
+/* ---------- Pagination helper ---------- */
+
+function buildPageList(current, total) {
+  if (!total || total <= 1) return [1];
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+
+  if (start > 2) pages.push("left-ellipsis");
+  for (let p = start; p <= end; p += 1) {
+    pages.push(p);
+  }
+  if (end < total - 1) pages.push("right-ellipsis");
+  pages.push(total);
+
+  return pages;
+}
+
 export default function AgentProfiles({
   title = "Agent Management",
   subtitle = "Manage and monitor all agents",
@@ -136,9 +159,46 @@ export default function AgentProfiles({
   onEdit,
   onRefresh,
   loading = false,
+  // New props
+  search = "",
+  onSearch,
+  pagination,
+  page,
+  onPageChange,
 }) {
   const list = useMemo(() => agents, [agents]);
   const isEmpty = !loading && list.length === 0;
+
+  const currentPage = pagination?.current_page || page || 1;
+  const totalPages = pagination?.total_pages || 1;
+  const totalItems = pagination?.total_items ?? list.length;
+  const itemsPerPage = pagination?.items_per_page || 8;
+
+  // Local search input state (keeps UX smooth)
+  const [searchInput, setSearchInput] = useState(search || "");
+
+  useEffect(() => {
+    setSearchInput(search || "");
+  }, [search]);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    onSearch?.(searchInput.trim());
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    onSearch?.("");
+  };
+
+  const pageList = buildPageList(currentPage, totalPages);
+
+  const startIndex =
+    totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endIndex =
+    totalItems === 0
+      ? 0
+      : Math.min(currentPage * itemsPerPage, totalItems);
 
   // ---------- Desktop/Table content (beautiful loading table) ----------
   let tableBodyContent;
@@ -417,11 +477,51 @@ export default function AgentProfiles({
 
       <div className="border-t border-gray-200" />
 
-      {/* Chip */}
-      <div className="px-5 pt-4 pb-2">
-        <div className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-2 text-sm text-gray-700 shadow-sm">
-          Agent Profiles
+      {/* Chip + Search bar */}
+      <div className="px-5 pt-4 pb-2 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-2 text-sm text-gray-700 shadow-sm">
+            Agent Profiles
+          </div>
         </div>
+
+        {/* Search bar */}
+        <form
+          onSubmit={handleSearchSubmit}
+          className="w-full md:w-auto"
+          autoComplete="off"
+        >
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 md:w-72">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
+                <SearchIcon className="h-4 w-4" />
+              </span>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by name, email, contact or agency…"
+                className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-9 pr-9 text-sm text-gray-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-xs font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            >
+              <SearchIcon className="h-3.5 w-3.5" />
+              Search
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Desktop / Tablet (Table) */}
@@ -464,16 +564,160 @@ export default function AgentProfiles({
                 </tr>
               </thead>
 
-              <tbody className="text-sm">
-                {tableBodyContent}
-              </tbody>
+              <tbody className="text-sm">{tableBodyContent}</tbody>
             </table>
+          </div>
+        </div>
+
+        {/* Pagination (desktop) */}
+        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between text-sm text-gray-600">
+          <div>
+            {totalItems > 0 ? (
+              <span>
+                Showing{" "}
+                <span className="font-semibold">
+                  {startIndex}–{endIndex}
+                </span>{" "}
+                of <span className="font-semibold">{fmt(totalItems)}</span> agents
+              </span>
+            ) : (
+              <span>No agents found</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onPageChange?.(currentPage > 1 ? currentPage - 1 : 1)
+              }
+              disabled={currentPage <= 1 || pagination?.has_prev_page === false}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Prev
+            </button>
+
+            {pageList.map((p, idx) =>
+              typeof p === "string" ? (
+                <span
+                  key={`${p}-${idx}`}
+                  className="px-2 text-xs text-gray-400 select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPageChange?.(p)}
+                  className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium ${
+                    p === currentPage
+                      ? "bg-blue-600 text-white shadow"
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                onPageChange?.(
+                  currentPage < totalPages ? currentPage + 1 : totalPages
+                )
+              }
+              disabled={
+                currentPage >= totalPages ||
+                pagination?.has_next_page === false
+              }
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile (Cards) */}
-      <div className="md:hidden px-5 pb-5">{mobileContent}</div>
+      {/* Mobile (Cards + pagination) */}
+      <div className="md:hidden px-5 pb-5">
+        {mobileContent}
+
+        {/* Pagination (mobile) */}
+        <div className="mt-4 flex flex-col gap-2 text-xs text-gray-600">
+          <div className="text-center">
+            {totalItems > 0 ? (
+              <span>
+                Showing{" "}
+                <span className="font-semibold">
+                  {startIndex}–{endIndex}
+                </span>{" "}
+                of <span className="font-semibold">{fmt(totalItems)}</span> agents
+              </span>
+            ) : (
+              <span>No agents found</span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-center gap-1 flex-wrap">
+            <button
+              type="button"
+              onClick={() =>
+                onPageChange?.(currentPage > 1 ? currentPage - 1 : 1)
+              }
+              disabled={currentPage <= 1 || pagination?.has_prev_page === false}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Prev
+            </button>
+
+            {pageList.map((p, idx) =>
+              typeof p === "string" ? (
+                <span
+                  key={`${p}-${idx}`}
+                  className="px-1 text-xs text-gray-400 select-none"
+                >
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPageChange?.(p)}
+                  className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-medium ${
+                    p === currentPage
+                      ? "bg-blue-600 text-white shadow"
+                      : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  {p}
+                </button>
+              )
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                onPageChange?.(
+                  currentPage < totalPages ? currentPage + 1 : totalPages
+                )
+              }
+              disabled={
+                currentPage >= totalPages ||
+                pagination?.has_next_page === false
+              }
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -499,4 +743,16 @@ AgentProfiles.propTypes = {
   onEdit: PropTypes.func,
   onRefresh: PropTypes.func,
   loading: PropTypes.bool,
+  search: PropTypes.string,
+  onSearch: PropTypes.func,
+  pagination: PropTypes.shape({
+    current_page: PropTypes.number,
+    total_pages: PropTypes.number,
+    total_items: PropTypes.number,
+    items_per_page: PropTypes.number,
+    has_next_page: PropTypes.bool,
+    has_prev_page: PropTypes.bool,
+  }),
+  page: PropTypes.number,
+  onPageChange: PropTypes.func,
 };

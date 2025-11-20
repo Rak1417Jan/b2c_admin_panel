@@ -157,17 +157,24 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Add New Agent</h3>
-          <p className="text-sm text-gray-500">Create a new agent account</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px] p-3 sm:p-4">
+      {/* Modal container: flex-col + max-h to keep footer visible */}
+      <div className="w-full max-w-lg max-h-[90vh] rounded-2xl bg-white shadow-2xl border border-gray-200 flex flex-col">
+        {/* Header */}
+        <div className="px-5 sm:px-6 py-3.5 sm:py-4 border-b border-gray-200">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+            Add New Agent
+          </h3>
+          <p className="mt-0.5 text-xs sm:text-sm text-gray-500">
+            Create a new agent account
+          </p>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
+        {/* Scrollable body */}
+        <div className="px-5 sm:px-6 py-4 sm:py-5 space-y-4 overflow-y-auto">
           {/* Agent name */}
           <div>
-            <label htmlFor={nameId} className="text-sm text-gray-700">
+            <label htmlFor={nameId} className="text-xs sm:text-sm text-gray-700">
               Agent name
             </label>
             <input
@@ -190,7 +197,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Agent email */}
           <div>
-            <label htmlFor={emailId} className="text-sm text-gray-700">
+            <label htmlFor={emailId} className="text-xs sm:text-sm text-gray-700">
               Agent email
             </label>
             <input
@@ -215,7 +222,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Contact number */}
           <div>
-            <label htmlFor={contactId} className="text-sm text-gray-700">
+            <label htmlFor={contactId} className="text-xs sm:text-sm text-gray-700">
               Contact number
             </label>
             <input
@@ -241,7 +248,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Agency */}
           <div>
-            <label htmlFor={agencyId} className="text-sm text-gray-700">
+            <label htmlFor={agencyId} className="text-xs sm:text-sm text-gray-700">
               Agency
             </label>
             <input
@@ -264,7 +271,10 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Password */}
           <div>
-            <label htmlFor={passwordId} className="text-sm text-gray-700">
+            <label
+              htmlFor={passwordId}
+              className="text-xs sm:text-sm text-gray-700"
+            >
               Set password
             </label>
             <div
@@ -292,10 +302,11 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                 aria-label={showPw ? "Hide password" : "Show password"}
                 title={showPw ? "Hide password" : "Show password"}
               >
+                {/* ✅ Same logic as other components */}
                 {showPw ? (
-                  <EyeOff className="h-4 w-4 text-gray-600" />
-                ) : (
                   <Eye className="h-4 w-4 text-gray-600" />
+                ) : (
+                  <EyeOff className="h-4 w-4 text-gray-600" />
                 )}
               </button>
             </div>
@@ -305,18 +316,19 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+        {/* Footer (fixed at bottom of modal container) */}
+        <div className="px-5 sm:px-6 py-3.5 sm:py-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-gray-200 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-gray-200 px-3.5 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onSave}
-            className="rounded-md px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700"
+            className="rounded-md px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700"
           >
             Create agent
           </button>

@@ -1,14 +1,20 @@
 // src/components/AgentMangament/AgentStats.jsx
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { UsersRound, Clock2, CheckCircle2 } from "lucide-react";
 import AgentProfiles from "./AgentProfiles.jsx";
 
-import { fetchAgents, updateAgent, createAgent } from "../../services/AgentService";
+import {
+  fetchAgents,
+  fetchAllAgents,
+  updateAgent,
+  createAgent,
+} from "../../services/AgentService";
 import EditAgentModal from "./EditAgentModal.jsx";
 import AddAgentModal from "./AddAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
+const ITEMS_PER_PAGE = 8;
 
 /* --------- Skeleton metric cards for loading state --------- */
 
@@ -31,19 +37,47 @@ export default function AgentStats({
   subtitle = "Manage and monitor all agents",
 }) {
   const [agents, setAgents] = useState([]);
+  const [allAgents, setAllAgents] = useState([]); // full list for metrics
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  const load = useCallback(async () => {
+  // Pagination + search state
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [pagination, setPagination] = useState(null);
+
+  // Guard against race conditions (older responses overriding newer)
+  const requestIdRef = useRef(0);
+
+  const load = async ({ page: pageOverride, search: searchOverride } = {}) => {
+    const effectivePage = pageOverride ?? page ?? 1;
+    const effectiveSearch =
+      typeof searchOverride === "string" ? searchOverride : search || "";
+
+    const currentId = ++requestIdRef.current;
+
+    setLoading(true);
+    setErr("");
+
     try {
-      setLoading(true);
-      setErr("");
-      const list = await fetchAgents();
+      const { agents: list, pagination: pg } = await fetchAgents({
+        page: effectivePage,
+        limit: ITEMS_PER_PAGE,
+        search: effectiveSearch,
+      });
+
+      if (currentId !== requestIdRef.current) return;
+
       setAgents(list);
+      setPagination(pg || null);
+
+      setPage(pg?.current_page || effectivePage);
+      setSearch(effectiveSearch);
     } catch (error) {
+      if (currentId !== requestIdRef.current) return;
       console.error("Failed to load agents:", error);
       const msg =
         error instanceof Error && error.message
@@ -51,19 +85,36 @@ export default function AgentStats({
           : "Failed to load agents.";
       setErr(msg);
     } finally {
-      setLoading(false);
+      if (currentId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
+  };
+
+  // Load full list only for metrics (no pagination)
+  const loadAllAgentsMetrics = async () => {
+    try {
+      const list = await fetchAllAgents();
+      setAllAgents(list);
+    } catch (error) {
+      console.error("Failed to load all agents for metrics:", error);
+      // we don't surface error here to UI, it's not critical
+    }
+  };
+
+  // Initial load – only once
+  useEffect(() => {
+    load({ page: 1, search: "" });
+    loadAllAgentsMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
+  // Metrics are based on ALL agents, not paginated subset
   const metrics = useMemo(() => {
     let totalAgents = 0;
     let totalCompleted = 0;
     let totalPending = 0;
-    for (const a of agents) {
+    for (const a of allAgents) {
       totalAgents += 1;
       totalCompleted += Number(
         a?.case_stats?.completed_cases || a?.completed_cases || 0
@@ -73,11 +124,16 @@ export default function AgentStats({
       );
     }
     return { totalAgents, totalCompleted, totalPending };
-  }, [agents]);
+  }, [allAgents]);
 
   const onEdit = (agentRow) => setEditing(agentRow.__raw);
 
-  const onSaveEdit = async ({ agent_name, contact_number, status, password }) => {
+  const onSaveEdit = async ({
+    agent_name,
+    contact_number,
+    status,
+    password,
+  }) => {
     if (!editing?.agent_id) return;
     try {
       setSaving(true);
@@ -88,7 +144,9 @@ export default function AgentStats({
         password,
       });
       setEditing(null);
+      // reload current page with same search + refresh metrics
       await load();
+      await loadAllAgentsMetrics();
     } catch (error) {
       console.error("Failed to update agent:", error);
       setErr("Failed to save changes. Please try again.");
@@ -118,13 +176,30 @@ export default function AgentStats({
         password,
       });
       setAdding(false);
-      await load();
+      // After creation, reload first page + refresh metrics
+      await load({ page: 1 });
+      await loadAllAgentsMetrics();
     } catch (error) {
       console.error("Failed to create agent:", error);
       setErr("Failed to create agent. Please check details and try again.");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSearch = async (value) => {
+    // On new search, always reset to page 1 (metrics unaffected)
+    await load({ page: 1, search: value });
+  };
+
+  const handlePageChange = async (nextPage) => {
+    if (!nextPage || nextPage === page) return;
+    await load({ page: nextPage });
+  };
+
+  const handleRefresh = async () => {
+    await load({ page: 1 });
+    await loadAllAgentsMetrics();
   };
 
   return (
@@ -201,7 +276,7 @@ export default function AgentStats({
       <AgentProfiles
         title={title}
         subtitle={subtitle}
-        onRefresh={load}
+        onRefresh={handleRefresh}
         onAddNew={onAddNew}
         agents={agents.map((a) => ({
           id: a.agent_id,
@@ -210,13 +285,23 @@ export default function AgentStats({
           email: a.agent_email,
           phone: a.contact_number,
           status: a.status,
-          completed: Number(a?.case_stats?.completed_cases ?? a?.completed_cases ?? 0),
-          pending: Number(a?.case_stats?.pending_cases ?? a?.pending_cases ?? 0),
+          completed: Number(
+            a?.case_stats?.completed_cases ?? a?.completed_cases ?? 0
+          ),
+          pending: Number(
+            a?.case_stats?.pending_cases ?? a?.pending_cases ?? 0
+          ),
           total: Number(a?.case_stats?.all_cases ?? a?.total_cases ?? 0),
           __raw: a,
         }))}
         onEdit={onEdit}
-        loading={loading} // IMPORTANT: pass loading so skeleton table shows
+        loading={loading}
+        // search + pagination props
+        search={search}
+        onSearch={handleSearch}
+        pagination={pagination}
+        page={page}
+        onPageChange={handlePageChange}
       />
 
       {/* Modals */}

@@ -1,4 +1,6 @@
+// src/services/CaseService.js
 const API_ROOT = import.meta.env.VITE_API_BASE;
+const DEFAULT_LIMIT = 8;
 
 function getAuthToken() {
   try {
@@ -16,8 +18,90 @@ function authHeaders(json = true) {
   return headers;
 }
 
-/** GET /api/cases */
-export async function fetchCases() {
+/**
+ * Normalize case object (ensure `agent_name` is a clean string).
+ */
+function normalizeCase(c) {
+  return {
+    ...c,
+    agent_name: typeof c.agent_name === "string" ? c.agent_name : "",
+  };
+}
+
+/**
+ * GET /api/cases/search
+ * Supports: page, limit, search (applicant/contact), created_from, created_to
+ * Returns: { cases, pagination }
+ */
+export async function fetchCases({
+  page = 1,
+  limit = DEFAULT_LIMIT,
+  search = "",
+  created_from,
+  created_to,
+} = {}) {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("limit", String(limit));
+
+  const trimmedSearch = String(search || "").trim();
+  if (trimmedSearch) {
+    params.set("search", trimmedSearch);
+  }
+
+  // Only send dates if BOTH are present (backend expects both)
+  const from = created_from ? String(created_from).slice(0, 10) : "";
+  const to = created_to ? String(created_to).slice(0, 10) : "";
+  if (from && to) {
+    params.set("created_from", from);
+    params.set("created_to", to);
+  }
+
+  const url = `${API_ROOT}/cases/search?${params.toString()}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: authHeaders(false),
+  });
+
+  if (!res.ok) throw new Error(`Cases fetch failed: ${res.status}`);
+
+  const data = await res.json();
+
+  const raw = Array.isArray(data?.data) ? data.data : [];
+  const cases = raw.map(normalizeCase);
+
+  const totalItems =
+    typeof data?.pagination?.total_items === "number"
+      ? data.pagination.total_items
+      : cases.length;
+  const itemsPerPage =
+    typeof data?.pagination?.items_per_page === "number"
+      ? data.pagination.items_per_page
+      : limit;
+  const totalPages =
+    typeof data?.pagination?.total_pages === "number"
+      ? data.pagination.total_pages
+      : Math.max(1, Math.ceil(totalItems / (itemsPerPage || 1)));
+
+  const pagination =
+    data?.pagination || {
+      current_page: page,
+      total_pages: totalPages,
+      total_items: totalItems,
+      items_per_page: itemsPerPage,
+      has_next_page: page < totalPages,
+      has_prev_page: page > 1,
+    };
+
+  return { cases, pagination };
+}
+
+/**
+ * GET /api/cases
+ * Full list WITHOUT pagination – for stat tiles only.
+ */
+export async function fetchAllCases() {
   const res = await fetch(`${API_ROOT}/cases`, {
     method: "GET",
     headers: authHeaders(false),
@@ -25,11 +109,13 @@ export async function fetchCases() {
   if (!res.ok) throw new Error(`Cases fetch failed: ${res.status}`);
   const data = await res.json();
 
-  const cases = Array.isArray(data?.cases) ? data.cases : [];
-  return cases.map((c) => ({
-    ...c,
-    agent_name: typeof c.agent_name === "string" ? c.agent_name : "",
-  }));
+  const raw = Array.isArray(data?.cases)
+    ? data.cases
+    : Array.isArray(data?.data)
+    ? data.data
+    : [];
+
+  return raw.map(normalizeCase);
 }
 
 /**
@@ -64,7 +150,7 @@ export async function assignCase(caseId, agentId) {
   return res.json();
 }
 
-/* ---------------------- NEW: Case files APIs ---------------------- */
+/* ---------------------- Case files APIs ---------------------- */
 
 /** GET /api/cases/:caseId/files -> { files: [...] } */
 export async function fetchCaseFiles(caseId) {
@@ -93,8 +179,8 @@ export async function fetchFileBlob(fileId) {
   });
   if (!res.ok) throw new Error(`File download failed: ${res.status}`);
 
-  const contentType = res.headers.get("Content-Type") || "application/octet-stream";
-  // Try to get filename from Content-Disposition if present
+  const contentType =
+    res.headers.get("Content-Type") || "application/octet-stream";
   const disp = res.headers.get("Content-Disposition") || "";
   let filename = "";
   const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(disp);
@@ -104,7 +190,7 @@ export async function fetchFileBlob(fileId) {
   return { blob, contentType, filename };
 }
 
-/* ---------------------- NEW: Generated PDF Report ---------------------- */
+/* ---------------------- Generated PDF Report ---------------------- */
 /**
  * POST https://rakshitjan-generate-pdf-python.hf.space/generate-report
  * Body: { "case_id": "<uuid>" }
@@ -119,7 +205,6 @@ export async function generateCaseReport(caseId, { signal } = {}) {
       method: "POST",
       headers: new Headers({ "Content-Type": "application/json" }),
       body: JSON.stringify({ case_id: caseId }),
-      // No internal timeout; optional external signal allowed
       signal,
     }
   );
