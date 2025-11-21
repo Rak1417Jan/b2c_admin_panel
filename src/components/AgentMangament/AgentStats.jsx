@@ -14,10 +14,8 @@ import EditAgentModal from "./EditAgentModal.jsx";
 import AddAgentModal from "./AddAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
-const ITEMS_PER_PAGE = 8;
 
 /* --------- Skeleton metric cards for loading state --------- */
-
 function MetricCardSkeleton() {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse">
@@ -44,38 +42,33 @@ export default function AgentStats({
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // Pagination + search state
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [pagination, setPagination] = useState(null);
+  // ✅ limit state (default 10)
+  const [limit, setLimit] = useState(10);
 
-  // Guard against race conditions (older responses overriding newer)
+  // Guard against race conditions
   const requestIdRef = useRef(0);
 
-  const load = async ({ page: pageOverride, search: searchOverride } = {}) => {
-    const effectivePage = pageOverride ?? page ?? 1;
-    const effectiveSearch =
-      typeof searchOverride === "string" ? searchOverride : search || "";
+  /**
+   * ✅ New load: only depends on limit.
+   * page/search removed because new API doesn't support them.
+   */
+  const load = async (limitOverride) => {
+    const effectiveLimit =
+      Number(limitOverride) > 0 ? Number(limitOverride) : limit;
 
     const currentId = ++requestIdRef.current;
-
     setLoading(true);
     setErr("");
 
     try {
-      const { agents: list, pagination: pg } = await fetchAgents({
-        page: effectivePage,
-        limit: ITEMS_PER_PAGE,
-        search: effectiveSearch,
+      const { agents: list } = await fetchAgents({
+        limit: effectiveLimit,
       });
 
       if (currentId !== requestIdRef.current) return;
 
       setAgents(list);
-      setPagination(pg || null);
-
-      setPage(pg?.current_page || effectivePage);
-      setSearch(effectiveSearch);
+      setLimit(effectiveLimit);
     } catch (error) {
       if (currentId !== requestIdRef.current) return;
       console.error("Failed to load agents:", error);
@@ -91,43 +84,53 @@ export default function AgentStats({
     }
   };
 
-  // Load full list only for metrics (no pagination)
+  /**
+   * ✅ Metrics list: full fetch using /users with big limit.
+   */
   const loadAllAgentsMetrics = async () => {
     try {
       const list = await fetchAllAgents();
       setAllAgents(list);
     } catch (error) {
       console.error("Failed to load all agents for metrics:", error);
-      // we don't surface error here to UI, it's not critical
     }
   };
 
-  // Initial load – only once
+  // Initial load
   useEffect(() => {
-    load({ page: 1, search: "" });
+    load(10);
     loadAllAgentsMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Metrics are based on ALL agents, not paginated subset
+  /**
+   * ✅ New Metrics based on NEW API fields.
+   */
   const metrics = useMemo(() => {
-    let totalAgents = 0;
-    let totalCompleted = 0;
-    let totalPending = 0;
+    let totalUsers = 0;
+    let activeUsers = 0;
+    let verifiedUsers = 0;
+
     for (const a of allAgents) {
-      totalAgents += 1;
-      totalCompleted += Number(
-        a?.case_stats?.completed_cases || a?.completed_cases || 0
-      );
-      totalPending += Number(
-        a?.case_stats?.pending_cases || a?.pending_cases || 0
-      );
+      totalUsers += 1;
+      if (a?.status === "active" || a?.is_active === true) activeUsers += 1;
+      if (a?.is_verified === true) verifiedUsers += 1;
     }
-    return { totalAgents, totalCompleted, totalPending };
+
+    return { totalUsers, activeUsers, verifiedUsers };
   }, [allAgents]);
 
-  const onEdit = (agentRow) => setEditing(agentRow.__raw);
+  /**
+   * ✅ Edit click -> open modal with normalized agent row
+   */
+  const onEdit = (agentRow) => {
+    if (!agentRow?.__raw) return;
+    setEditing(agentRow.__raw);
+  };
 
+  /**
+   * ❗ Update API unchanged (still old endpoint)
+   */
   const onSaveEdit = async ({
     agent_name,
     contact_number,
@@ -144,12 +147,12 @@ export default function AgentStats({
         password,
       });
       setEditing(null);
-      // reload current page with same search + refresh metrics
-      await load();
+      await load(limit);
       await loadAllAgentsMetrics();
     } catch (error) {
       console.error("Failed to update agent:", error);
       setErr("Failed to save changes. Please try again.");
+      throw error; // ✅ so Edit modal can react if needed later
     } finally {
       setSaving(false);
     }
@@ -157,49 +160,62 @@ export default function AgentStats({
 
   const onAddNew = () => setAdding(true);
 
-  // Include `agency` when creating an agent
+  /**
+   * ✅ Create agent with NEW API fields.
+   * IMPORTANT: return response so AddAgentModal can detect body-failed.
+   */
   const onCreateAgent = async ({
     agent_name,
     agent_email,
     contact_number,
-    agency,
     password,
+    is_active,
   }) => {
-    if (saving) return;
+    if (saving) return null;
     try {
       setSaving(true);
-      await createAgent({
+
+      const resp = await createAgent({
         agent_name: (agent_name || "").trim(),
         agent_email: (agent_email || "").trim(),
         contact_number: (contact_number || "").trim(),
-        agency: (agency || "").trim(),
         password,
+        is_active: Boolean(is_active),
       });
+
+      // ✅ Only close modal + reload after success-like response
+      // (Modal itself handles body-failed; if body-failed, it won't reach here)
       setAdding(false);
-      // After creation, reload first page + refresh metrics
-      await load({ page: 1 });
+      await load(limit);
       await loadAllAgentsMetrics();
+
+      return resp; // ✅ CRITICAL
     } catch (error) {
       console.error("Failed to create agent:", error);
+
+      // Don’t force success UI here; modal will show errors using thrown msg
       setErr("Failed to create agent. Please check details and try again.");
+      throw error; // ✅ CRITICAL
     } finally {
       setSaving(false);
     }
   };
 
-  const handleSearch = async (value) => {
-    // On new search, always reset to page 1 (metrics unaffected)
-    await load({ page: 1, search: value });
-  };
-
-  const handlePageChange = async (nextPage) => {
-    if (!nextPage || nextPage === page) return;
-    await load({ page: nextPage });
-  };
-
+  /**
+   * ✅ Refresh keeps same limit.
+   */
   const handleRefresh = async () => {
-    await load({ page: 1 });
+    await load(limit);
     await loadAllAgentsMetrics();
+  };
+
+  /**
+   * ✅ Limit change handler (live reload)
+   */
+  const handleLimitChange = async (nextLimit) => {
+    const val = Number(nextLimit);
+    if (!val || val <= 0 || val === limit) return;
+    await load(val);
   };
 
   return (
@@ -214,13 +230,13 @@ export default function AgentStats({
           </>
         ) : (
           <>
-            {/* Total Agents */}
+            {/* Total Users */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Agents</p>
+                  <p className="text-sm text-gray-600">Total Users</p>
                   <p className="mt-3 text-lg font-semibold text-gray-800">
-                    {fmt(metrics.totalAgents)}
+                    {fmt(metrics.totalUsers)}
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center">
@@ -229,13 +245,13 @@ export default function AgentStats({
               </div>
             </div>
 
-            {/* Cases Completed */}
+            {/* Active Users */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Cases Completed</p>
+                  <p className="text-sm text-gray-600">Active Users</p>
                   <p className="mt-3 text-lg font-semibold text-gray-800">
-                    {fmt(metrics.totalCompleted)}
+                    {fmt(metrics.activeUsers)}
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
@@ -244,13 +260,13 @@ export default function AgentStats({
               </div>
             </div>
 
-            {/* Pending Cases */}
+            {/* Verified Users */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Pending Cases</p>
+                  <p className="text-sm text-gray-600">Verified Users</p>
                   <p className="mt-3 text-lg font-semibold text-gray-800">
-                    {fmt(metrics.totalPending)}
+                    {fmt(metrics.verifiedUsers)}
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
@@ -268,40 +284,30 @@ export default function AgentStats({
       {loading && !err && (
         <div className="mt-4 inline-flex items-center gap-2 text-sm text-gray-500">
           <div className="h-4 w-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-          <span>Loading agents…</span>
+          <span>Loading users…</span>
         </div>
       )}
 
-      {/* Table after cards */}
+      {/* Profiles table */}
       <AgentProfiles
         title={title}
         subtitle={subtitle}
         onRefresh={handleRefresh}
         onAddNew={onAddNew}
+        loading={loading}
         agents={agents.map((a) => ({
           id: a.agent_id,
           name: a.agent_name,
-          agency: a.agency, // pass through agency (can be undefined)
           email: a.agent_email,
           phone: a.contact_number,
-          status: a.status,
-          completed: Number(
-            a?.case_stats?.completed_cases ?? a?.completed_cases ?? 0
-          ),
-          pending: Number(
-            a?.case_stats?.pending_cases ?? a?.pending_cases ?? 0
-          ),
-          total: Number(a?.case_stats?.all_cases ?? a?.total_cases ?? 0),
+          is_active: a.status === "active",
+          is_verified: Boolean(a.is_verified),
+          created_at: a.created_at,
           __raw: a,
         }))}
         onEdit={onEdit}
-        loading={loading}
-        // search + pagination props
-        search={search}
-        onSearch={handleSearch}
-        pagination={pagination}
-        page={page}
-        onPageChange={handlePageChange}
+        limit={limit}
+        onLimitChange={handleLimitChange}
       />
 
       {/* Modals */}

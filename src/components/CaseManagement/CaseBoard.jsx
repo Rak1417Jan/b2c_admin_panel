@@ -537,13 +537,13 @@ export default function CaseBoard({
         <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div className="w-full md:max-w-xs">
             <label className="block text-xs font-medium text-gray-600 mb-1">
-              Search (applicant / contact)
+              Search
             </label>
             <input
               type="text"
               value={localSearch}
               onChange={handleSearchChange}
-              placeholder="Search applicant name or contact…"
+              placeholder="Search Applicant Name or Contact…"
               className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
             />
           </div>

@@ -1,112 +1,135 @@
 // src/services/AgentService.js
 import { encryptText } from "../utils/cryptoService";
 
-const API_ROOT = import.meta.env.VITE_API_BASE;
-const DEFAULT_LIMIT = 8;
+// ✅ NEW fixed base URL (no env for now)
+const API_ROOT = "https://sidbi-user-india-uat-cpv.b2cdev.com";
 
-function getAuthToken() {
-  try {
-    const t = globalThis.localStorage.getItem("authToken");
-    return t || "";
-  } catch {
-    return "";
-  }
-}
+// Default row limit for users list
+const DEFAULT_LIMIT = 10;
 
-function authHeaders(json = true) {
+// Hardcoded role id as per your backend contract
+const DEFAULT_ROLE_ID = "691c48ae1fc6f9213d2fb158";
+
+// Simple timeout so fetch doesn't hang forever
+const FETCH_TIMEOUT_MS = 20000;
+
+/* ------------------------------------------------------------------ */
+/*  New APIs DON'T need authToken => keep headers minimal             */
+/* ------------------------------------------------------------------ */
+
+function jsonHeaders() {
   const headers = new Headers();
-  if (json) headers.set("Content-Type", "application/json");
-  const token = getAuthToken();
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Content-Type", "application/json");
+  headers.set("Accept", "application/json");
   return headers;
 }
 
-/** Ensure numbers & attach a consistent `case_stats` object to each agent */
-function normalizeAgent(agent) {
-  const completed = Number(
-    agent?.completed_cases ?? agent?.case_stats?.completed_cases ?? 0
-  );
-  const pending = Number(
-    agent?.pending_cases ?? agent?.case_stats?.pending_cases ?? 0
-  );
-  const total = Number(
-    agent?.total_cases ?? agent?.case_stats?.all_cases ?? 0
-  );
+/**
+ * Utility: fetch with timeout + abort (prevents glitches/race hangs)
+ */
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      // ✅ IMPORTANT: do NOT add credentials here
+      // credentials: "include"  <-- removed to fix CORS
+    });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+/**
+ * Normalize NEW `/users` API item into a stable "agent-like" shape
+ * that your UI / modals can safely use.
+ */
+function normalizeUserToAgent(u) {
+  const isActiveBool = Boolean(u?.is_active);
+  const isVerifiedBool = Boolean(u?.is_verified);
 
   return {
-    ...agent,
-    case_stats: {
-      completed_cases: completed,
-      pending_cases: pending,
-      all_cases: total,
-    },
+    agent_id: String(u?.id || ""),
+    agent_name: String(u?.name || ""),
+    agent_email: String(u?.email_address || ""),
+    contact_number: String(u?.phone_number ?? ""),
+    status: isActiveBool ? "active" : "inactive",
+    is_verified: isVerifiedBool,
+    created_at: u?.created_at || null,
+
+    // keep raw row for edit modal etc.
+    __rawUser: u,
   };
 }
 
 /**
- * GET /api/agents/search
- * Paginated list + search (name, email, contact, agency).
+ * ✅ NEW API
+ * GET /api/backend/v1/users?limit=10
+ *
+ * Old signature kept to avoid UI glitches.
+ * page/search ignored because backend doesn't support them now.
  */
 export async function fetchAgents({
-  page = 1,
+  page = 1, // kept for compatibility (ignored)
   limit = DEFAULT_LIMIT,
-  search = "",
+  search = "", // kept for compatibility (ignored)
 } = {}) {
+  const safeLimit = Number(limit) > 0 ? Number(limit) : DEFAULT_LIMIT;
+
   const params = new URLSearchParams();
-  params.set("page", String(page));
-  params.set("limit", String(limit));
+  params.set("limit", String(safeLimit));
 
-  const trimmedSearch = String(search || "").trim();
-  if (trimmedSearch) {
-    params.set("search", trimmedSearch);
-  }
+  const url = `${API_ROOT}/api/backend/v1/users?${params.toString()}`;
 
-  const url = `${API_ROOT}/agents/search?${params.toString()}`;
-
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     method: "GET",
-    headers: authHeaders(false),
+    headers: jsonHeaders(),
   });
 
-  if (!res.ok) throw new Error(`Agents fetch failed: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Users fetch failed (HTTP ${res.status})${text ? `: ${text}` : ""}`
+    );
+  }
 
   const data = await res.json();
 
   const raw = Array.isArray(data?.data) ? data.data : [];
-  const agents = raw.map(normalizeAgent);
+  const agents = raw.map(normalizeUserToAgent);
 
-  const pagination =
-    data?.pagination || {
-      current_page: page,
-      total_pages: 1,
-      total_items: agents.length,
-      items_per_page: limit,
-      has_next_page: false,
-      has_prev_page: false,
-    };
+  // Backend doesn't send pagination -> safe fallback
+  const pagination = {
+    current_page: 1,
+    total_pages: 1,
+    total_items: agents.length,
+    items_per_page: safeLimit,
+    has_next_page: false,
+    has_prev_page: false,
+  };
 
   return { agents, pagination };
 }
 
 /**
- * GET /api/agents
- * Full agents list (no pagination) – used only for metrics.
+ * ✅ For metrics:
+ * Old `/agents` is gone, so reuse `/users` with big limit.
  */
 export async function fetchAllAgents() {
-  const res = await fetch(`${API_ROOT}/agents`, {
-    method: "GET",
-    headers: authHeaders(false),
-  });
-
-  if (!res.ok) throw new Error(`All agents fetch failed: ${res.status}`);
-
-  const data = await res.json();
-  // Old API used `data.agents`
-  const raw = Array.isArray(data?.agents) ? data.agents : [];
-  return raw.map(normalizeAgent);
+  const BIG_LIMIT = 5000;
+  const { agents } = await fetchAgents({ limit: BIG_LIMIT });
+  return agents;
 }
 
-/** PUT /api/agents/:agent_id */
+/**
+ * ❗Still old endpoint unless your backend provides new update API.
+ * No auth, no credentials.
+ * If update endpoint changes, replace URL only.
+ */
 export async function updateAgent(
   agentId,
   { agent_name, contact_number, status, password }
@@ -121,38 +144,57 @@ export async function updateAgent(
     payload.password = password.trim();
   }
 
-  const res = await fetch(`${API_ROOT}/agents/${agentId}`, {
+  const res = await fetchWithTimeout(`${API_ROOT}/agents/${agentId}`, {
     method: "PUT",
-    headers: authHeaders(true),
+    headers: jsonHeaders(),
     body: JSON.stringify(payload),
   });
 
-  if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Update failed (HTTP ${res.status})${text ? `: ${text}` : ""}`
+    );
+  }
+
   return res.json();
 }
 
-/** POST /api/agents */
+/**
+ * ✅ NEW API
+ * POST /api/backend/v1/banker_create
+ */
 export async function createAgent({
   agent_name,
   agent_email,
   contact_number,
-  agency,
   password,
-}) {
+  is_active = true,
+} = {}) {
   const payload = {
-    agent_name: encryptText(agent_name || ""),
-    agent_email: encryptText(agent_email || ""),
-    contact_number: encryptText(contact_number || ""),
-    agency: encryptText(agency || ""),
-    password, // as-is per backend contract
+    name: String(agent_name || "").trim(),
+    email_address: String(agent_email || "").trim(),
+    password: String(password || ""),
+    role_id: DEFAULT_ROLE_ID,
+    is_active: Boolean(is_active),
+    phone_number: String(contact_number || "").trim(),
   };
 
-  const res = await fetch(`${API_ROOT}/agents`, {
-    method: "POST",
-    headers: authHeaders(true),
-    body: JSON.stringify(payload),
-  });
+  const res = await fetchWithTimeout(
+    `${API_ROOT}/api/backend/v1/banker_create`,
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify(payload),
+    }
+  );
 
-  if (!res.ok) throw new Error(`Create failed: ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Create failed (HTTP ${res.status})${text ? `: ${text}` : ""}`
+    );
+  }
+
   return res.json();
 }
