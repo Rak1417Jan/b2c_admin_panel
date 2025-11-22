@@ -2,19 +2,12 @@
 import { encryptText } from "../utils/cryptoService";
 
 // ✅ Second API root (HF Space)
+// Example: https://rakshitjan-cps-b2c.hf.space/api
 const HF_API_ROOT = import.meta.env.VITE_API_BASE;
 
 /**
- * ✅ Hits 2nd API AFTER createAgent success.
+ * ✅ Hits HF API AFTER createAgent success.
  * POST /api/agents
- *
- * Requires:
- * - Bearer token from localStorage ("authToken")
- * - Encrypt: agent_name, agent_email, contact_number, agency
- * - Send: password as plain text
- *
- * NOTE:
- * - Caller may choose to ignore errors (silent fail in UI).
  */
 export async function addAgentToHFAgency({
   agent_name,
@@ -25,7 +18,6 @@ export async function addAgentToHFAgency({
 } = {}) {
   const token = localStorage.getItem("authToken");
   if (!token) {
-    // keep as throw so caller can swallow silently if desired
     throw new Error("Auth token missing. Please login again.");
   }
 
@@ -39,19 +31,18 @@ export async function addAgentToHFAgency({
     agent_email: encryptText(cleanEmail),
     contact_number: encryptText(cleanContact),
     password: String(password || ""), // ✅ plain (NOT encrypted)
-    agency: encryptText(cleanAgency), // ✅ encrypted per requirement
+    agency: encryptText(cleanAgency),
   };
 
   const res = await fetch(`${HF_API_ROOT}/agents`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`, // ✅ required
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
 
-  // If HF API returns non-2xx, throw formatted error
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     let msg = `HF create failed (HTTP ${res.status})`;
@@ -73,4 +64,46 @@ export async function addAgentToHFAgency({
   }
 
   return res.json();
+}
+
+/**
+ * ✅ NEW: Fetch agents list from HF API for Case Edit Modal dropdown
+ * GET /api/agents
+ *
+ * Returns: normalized array of agents
+ * [{ agent_id, agent_name, status, ... }]
+ */
+export async function fetchHFAgents() {
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    throw new Error("Auth token missing. Please login again.");
+  }
+
+  const res = await fetch(`${HF_API_ROOT}/agents`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    let msg = `HF agents fetch failed (HTTP ${res.status})`;
+    if (text) msg += `: ${text}`;
+    throw new Error(msg);
+  }
+
+  const data = await res.json().catch(() => ({}));
+
+  // HF response shape: { agents: [...] }
+  const rawAgents = Array.isArray(data?.agents) ? data.agents : [];
+
+  return rawAgents.map((a) => ({
+    agent_id: a.agent_id,
+    agent_name: a.agent_name,
+    status: a.status,
+    agent_email: a.agent_email,
+    contact_number: a.contact_number,
+    _id: a._id,
+  }));
 }

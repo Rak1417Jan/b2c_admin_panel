@@ -9,7 +9,13 @@ import {
   resolveAgentNames,
   assignCase,
 } from "../../services/CaseService";
-import { fetchAllAgents } from "../../services/AgentService"; // 🔄 changed import
+
+// ❌ remove this import (we won't use CPS agent list here for modal)
+// import { fetchAllAgents } from "../../services/AgentService";
+
+// ✅ NEW: use HF agents list for edit modal dropdown
+import { fetchHFAgents } from "../../services/Addagent";
+
 import CaseDetailsModal from "./CaseDetailsModal";
 import CaseEditModal from "./CaseEditModal";
 import UploadModal from "./UploadModal";
@@ -46,16 +52,19 @@ export default function CaseManagement() {
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [viewing, setViewing] = useState(null); // selected case for details modal
-  const [editing, setEditing] = useState(null); // selected case for edit modal
-  const [agentList, setAgentList] = useState([]); // [{agent_id, agent_name}, ...]
-  const [saving, setSaving] = useState(false);
-  const [showUploadModal, setShowUploadModal] = useState(false); // controls upload modal
+  const [viewing, setViewing] = useState(null);
+  const [editing, setEditing] = useState(null);
 
-  // NEW: full list only for stat tiles
+  // ✅ HF agents go here
+  const [agentList, setAgentList] = useState([]);
+
+  const [saving, setSaving] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // full list only for stat tiles
   const [allCases, setAllCases] = useState([]);
 
-  // NEW: report modal state
+  // report modal state
   const [reportCaseId, setReportCaseId] = useState("");
 
   // Guard against race conditions
@@ -137,12 +146,13 @@ export default function CaseManagement() {
     }
   }
 
-  /* --- prefetch agents (used in the edit modal) --- */
+  /**
+   * ✅ prefetch agents from HF API (used ONLY in edit modal)
+   * GET /api/agents (HF SPACE)
+   */
   async function loadAgents() {
     try {
-      // 🔄 Use /api/agents (full list) instead of /agents/search
-      const allAgents = await fetchAllAgents(); // returns normalized array
-
+      const allAgents = await fetchHFAgents();
       setAgentList(
         allAgents
           .filter((a) => a?.agent_id && a?.agent_name)
@@ -153,13 +163,12 @@ export default function CaseManagement() {
           }))
       );
     } catch (e) {
-      console.error("Failed to load agents:", e);
+      console.error("Failed to load HF agents:", e);
       setAgentList([]);
     }
   }
 
   useEffect(() => {
-    // default: last 1 month date range
     load({
       page: 1,
       search: "",
@@ -171,7 +180,7 @@ export default function CaseManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* --- Stat tiles — Total, Pending, Completed (based on /api/cases) --- */
+  /* --- Stat tiles — Total, Pending, Completed --- */
   const totals = useMemo(() => {
     const total = allCases.length;
     const completed = allCases.filter((c) => c.status === "Completed").length;
@@ -185,12 +194,12 @@ export default function CaseManagement() {
     setEditing(row.__raw);
   };
 
-  /* --- assign agent --- */
+  /* --- assign agent (send HF agent_id) --- */
   const handleAssignAgent = async (caseId, agentId) => {
     if (!caseId || !agentId) return;
     try {
       setSaving(true);
-      await assignCase(caseId, agentId);
+      await assignCase(caseId, agentId); // ✅ agentId comes from HF API list
       setEditing(null);
       await load();
       await loadAllCases();
@@ -201,25 +210,21 @@ export default function CaseManagement() {
     }
   };
 
-  // NEW: open Report modal
   const handleViewReport = (row) => {
     const id = row?.__raw?.case_id || row?.id;
     if (!id) return;
     setReportCaseId(id);
   };
 
-  // NEW: search handler (applicant / contact)
   const handleSearch = async (value) => {
     await load({ page: 1, search: value });
   };
 
-  // NEW: page change handler
   const handlePageChange = async (nextPage) => {
     if (!nextPage || nextPage === page) return;
     await load({ page: nextPage });
   };
 
-  // NEW: date range handler (only filters when both dates are present)
   const handleDateChange = async (which, value) => {
     if (which === "from") {
       setStartDate(value);
@@ -236,7 +241,7 @@ export default function CaseManagement() {
 
   const handleRefresh = () => {
     load();
-    loadAgents();
+    loadAgents();     // ✅ HF refresh
     loadAllCases();
   };
 
@@ -302,7 +307,6 @@ export default function CaseManagement() {
         onRefresh={handleRefresh}
         onViewReport={handleViewReport}
         loading={loading}
-        // NEW: filters + pagination
         search={search}
         onSearch={handleSearch}
         startDate={startDate}
@@ -332,7 +336,7 @@ export default function CaseManagement() {
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
         caseData={editing}
-        agents={agentList}
+        agents={agentList}     // ✅ HF agents list
         onSubmitAssign={handleAssignAgent}
         saving={saving}
       />
