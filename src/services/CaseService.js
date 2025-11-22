@@ -1,5 +1,6 @@
 // src/services/CaseService.js
 const API_ROOT = import.meta.env.VITE_API_BASE;
+const REPORT_ROOT = import.meta.env.VITE_REPORT_BASE;
 const DEFAULT_LIMIT = 8;
 
 function getAuthToken() {
@@ -200,7 +201,7 @@ export async function generateCaseReport(caseId, { signal } = {}) {
   if (!caseId) throw new Error("Missing caseId");
 
   const res = await fetch(
-    "https://rakshitjan-generate-pdf-python.hf.space/generate-report",
+    `${REPORT_ROOT}/generate-report`,
     {
       method: "POST",
       headers: new Headers({ "Content-Type": "application/json" }),

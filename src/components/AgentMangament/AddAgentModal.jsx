@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   BadgeCheck,
   XCircle,
+  Building2,
 } from "lucide-react";
 
 /* ---------- Validation helpers (outer scope for Sonar) ---------- */
@@ -40,13 +41,10 @@ function isValidPassword(value) {
   return passwordRegex.test(trimmed);
 }
 
-/* ---------- Backend error formatter ---------- */
+/* ---------- Backend error formatter (for FIRST API only) ---------- */
 function normalizeApiErrors(payload) {
-  // payload example:
-  // { status:"failed", code:400, errors:[{parameter,message,type}] }
   const errs = Array.isArray(payload?.errors) ? payload.errors : [];
   if (errs.length === 0) return [];
-
   return errs.map((e, i) => ({
     id: `${e?.parameter || "error"}-${i}`,
     field: e?.parameter || "unknown_field",
@@ -55,15 +53,14 @@ function normalizeApiErrors(payload) {
   }));
 }
 
-/* -------------------------- Component -------------------------- */
-
 export default function AddAgentModal({ open, onClose, onSubmit }) {
   const [form, setForm] = useState({
     agent_name: "",
     agent_email: "",
     contact_number: "",
     password: "",
-    status: "active", // UI-friendly, converts to is_active boolean
+    agency: "",       // ✅ required for second API
+    status: "active", // ✅ keep for first API only
   });
 
   const [errors, setErrors] = useState({
@@ -71,22 +68,23 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
     agent_email: "",
     contact_number: "",
     password: "",
+    agency: "",
   });
 
   const [showPw, setShowPw] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [successMsg, setSuccessMsg] = useState("");
-  const [submitError, setSubmitError] = useState(""); // fallback single message
-  const [apiErrors, setApiErrors] = useState([]); // pretty list from backend
+  const [submitError, setSubmitError] = useState("");
+  const [apiErrors, setApiErrors] = useState([]);
 
-  // Stable ids for a11y / Sonar
   const baseId = useId();
   const nameId = `${baseId}-agent-name`;
   const emailId = `${baseId}-agent-email`;
   const contactId = `${baseId}-contact-number`;
   const passwordId = `${baseId}-password`;
   const statusId = `${baseId}-status`;
+  const agencyId = `${baseId}-agency`;
 
   useEffect(() => {
     if (!open) {
@@ -95,6 +93,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
         agent_email: "",
         contact_number: "",
         password: "",
+        agency: "",
         status: "active",
       });
       setErrors({
@@ -102,6 +101,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
         agent_email: "",
         contact_number: "",
         password: "",
+        agency: "",
       });
       setShowPw(false);
       setSaving(false);
@@ -130,6 +130,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
       agent_email: "",
       contact_number: "",
       password: "",
+      agency: "",
     };
 
     if (!form.agent_name.trim()) {
@@ -157,6 +158,10 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
         "Password must be 8+ chars with 1 uppercase, 1 number, and 1 special character.";
     }
 
+    if (!form.agency.trim()) {
+      newErrors.agency = "Agency is required.";
+    }
+
     const hasError = Object.values(newErrors).some(Boolean);
     if (hasError) {
       setErrors(newErrors);
@@ -169,16 +174,19 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
       setSuccessMsg("");
       setApiErrors([]);
 
-      // IMPORTANT: capture response
       const resp = await onSubmit?.({
         agent_name: form.agent_name.trim(),
         agent_email: form.agent_email.trim(),
         contact_number: form.contact_number.trim(),
         password: form.password,
-        is_active: form.status === "active",
+        agency: form.agency.trim(),              // ✅ for 2nd API
+        is_active: form.status === "active",     // ✅ for 1st API only
       });
 
-      // If backend returns ok HTTP but status failed -> show errors
+      // If nothing returned (e.g., blocked by saving), don’t show success
+      if (!resp) return;
+
+      // FIRST API “body failed” guard
       const failedByBody =
         resp?.status === "failed" ||
         (typeof resp?.code === "number" && resp.code >= 400);
@@ -190,28 +198,25 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
         } else {
           setSubmitError(resp?.message || "Failed to create agent.");
         }
-        return; // stop success
+        return;
       }
 
-      // Success only here
+      // ✅ success only for first API success
       setSuccessMsg("Agent created successfully.");
       setForm({
         agent_name: "",
         agent_email: "",
         contact_number: "",
         password: "",
+        agency: "",
         status: "active",
       });
       setShowPw(false);
     } catch (err) {
-      console.error("AddAgentModal create failed:", err);
-
-      // If err is thrown from fetch -> show error text
       const msg =
         err instanceof Error && err.message
           ? err.message
           : "Failed to create agent. Please try again.";
-
       setSubmitError(msg);
     } finally {
       setSaving(false);
@@ -233,7 +238,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
           </p>
         </div>
 
-        {/* Scrollable body */}
+        {/* Body */}
         <div className="px-5 sm:px-6 py-4 sm:py-5 space-y-4 overflow-y-auto">
           {/* Success */}
           {successMsg && (
@@ -243,7 +248,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
             </div>
           )}
 
-          {/* Nice API errors */}
+          {/* Backend structured errors */}
           {apiErrors.length > 0 && (
             <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-red-700">
@@ -270,7 +275,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
             </div>
           )}
 
-          {/* Fallback error (thrown error, no structured errors) */}
+          {/* Fallback error */}
           {submitError && apiErrors.length === 0 && (
             <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-700">
               <AlertTriangle className="mt-[2px] h-4 w-4" />
@@ -294,7 +299,6 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                   : "border-gray-300 focus:ring-blue-600/30"
               }`}
               placeholder="Enter agent name"
-              aria-invalid={!!errors.agent_name}
             />
             {errors.agent_name && (
               <p className="mt-1 text-xs text-red-500">{errors.agent_name}</p>
@@ -318,8 +322,6 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                   : "border-gray-300 focus:ring-blue-600/30"
               }`}
               placeholder="name@example.com"
-              autoComplete="email"
-              aria-invalid={!!errors.agent_email}
             />
             {errors.agent_email && (
               <p className="mt-1 text-xs text-red-500">{errors.agent_email}</p>
@@ -328,10 +330,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Contact number */}
           <div>
-            <label
-              htmlFor={contactId}
-              className="text-xs sm:text-sm text-gray-700"
-            >
+            <label htmlFor={contactId} className="text-xs sm:text-sm text-gray-700">
               Contact number
             </label>
             <input
@@ -346,7 +345,6 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                   : "border-gray-300 focus:ring-blue-600/30"
               }`}
               placeholder="e.g. 9999888877"
-              aria-invalid={!!errors.contact_number}
             />
             {errors.contact_number && (
               <p className="mt-1 text-xs text-red-500">
@@ -355,7 +353,34 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
             )}
           </div>
 
-          {/* Status (new API field -> is_active) */}
+          {/* Agency */}
+          <div>
+            <label htmlFor={agencyId} className="text-xs sm:text-sm text-gray-700">
+              Agency
+            </label>
+            <div
+              className={`mt-1 flex items-center gap-2 rounded-md border px-3 py-2 focus-within:ring-2 transition ${
+                errors.agency
+                  ? "border-red-400 bg-red-50 focus-within:ring-red-500/40"
+                  : "border-gray-300 bg-white focus-within:ring-blue-600/30"
+              }`}
+            >
+              <Building2 className="h-4 w-4 text-gray-500" />
+              <input
+                id={agencyId}
+                name="agency"
+                value={form.agency}
+                onChange={handleChange}
+                className="w-full bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400"
+                placeholder="Enter agency name"
+              />
+            </div>
+            {errors.agency && (
+              <p className="mt-1 text-xs text-red-500">{errors.agency}</p>
+            )}
+          </div>
+
+          {/* Status (first API only) */}
           <div>
             <label htmlFor={statusId} className="text-xs sm:text-sm text-gray-700">
               Status
@@ -379,10 +404,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Password */}
           <div>
-            <label
-              htmlFor={passwordId}
-              className="text-xs sm:text-sm text-gray-700"
-            >
+            <label htmlFor={passwordId} className="text-xs sm:text-sm text-gray-700">
               Set password
             </label>
             <div
@@ -400,8 +422,6 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                 onChange={handleChange}
                 className="w-full bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400"
                 placeholder="Enter a secure password"
-                autoComplete="new-password"
-                aria-invalid={!!errors.password}
               />
               <button
                 type="button"
@@ -462,5 +482,5 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 AddAgentModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onClose: PropTypes.func.isRequired,
-  onSubmit: PropTypes.func.isRequired, // should return Promise with API json
+  onSubmit: PropTypes.func.isRequired, // should return Promise with FIRST API json
 };

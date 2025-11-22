@@ -10,6 +10,8 @@ import {
   updateAgent,
   createAgent,
 } from "../../services/AgentService";
+
+import { addAgentToHFAgency } from "../../services/Addagent"; // ✅ HF (2nd API)
 import EditAgentModal from "./EditAgentModal.jsx";
 import AddAgentModal from "./AddAgentModal.jsx";
 
@@ -35,23 +37,16 @@ export default function AgentStats({
   subtitle = "Manage and monitor all agents",
 }) {
   const [agents, setAgents] = useState([]);
-  const [allAgents, setAllAgents] = useState([]); // full list for metrics
+  const [allAgents, setAllAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // ✅ limit state (default 10)
   const [limit, setLimit] = useState(10);
-
-  // Guard against race conditions
   const requestIdRef = useRef(0);
 
-  /**
-   * ✅ New load: only depends on limit.
-   * page/search removed because new API doesn't support them.
-   */
   const load = async (limitOverride) => {
     const effectiveLimit =
       Number(limitOverride) > 0 ? Number(limitOverride) : limit;
@@ -61,51 +56,38 @@ export default function AgentStats({
     setErr("");
 
     try {
-      const { agents: list } = await fetchAgents({
-        limit: effectiveLimit,
-      });
-
+      const { agents: list } = await fetchAgents({ limit: effectiveLimit });
       if (currentId !== requestIdRef.current) return;
-
       setAgents(list);
       setLimit(effectiveLimit);
     } catch (error) {
       if (currentId !== requestIdRef.current) return;
-      console.error("Failed to load agents:", error);
       const msg =
         error instanceof Error && error.message
           ? `Failed to load agents: ${error.message}`
           : "Failed to load agents.";
       setErr(msg);
     } finally {
-      if (currentId === requestIdRef.current) {
-        setLoading(false);
-      }
+      if (currentId === requestIdRef.current) setLoading(false);
     }
   };
 
-  /**
-   * ✅ Metrics list: full fetch using /users with big limit.
-   */
   const loadAllAgentsMetrics = async () => {
     try {
       const list = await fetchAllAgents();
       setAllAgents(list);
     } catch (error) {
-      console.error("Failed to load all agents for metrics:", error);
+      // metrics errors should not block UI hard
+      console.error("Failed to load metrics list:", error);
     }
   };
 
-  // Initial load
   useEffect(() => {
     load(10);
     loadAllAgentsMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * ✅ New Metrics based on NEW API fields.
-   */
   const metrics = useMemo(() => {
     let totalUsers = 0;
     let activeUsers = 0;
@@ -120,17 +102,11 @@ export default function AgentStats({
     return { totalUsers, activeUsers, verifiedUsers };
   }, [allAgents]);
 
-  /**
-   * ✅ Edit click -> open modal with normalized agent row
-   */
   const onEdit = (agentRow) => {
     if (!agentRow?.__raw) return;
     setEditing(agentRow.__raw);
   };
 
-  /**
-   * ❗ Update API unchanged (still old endpoint)
-   */
   const onSaveEdit = async ({
     agent_name,
     contact_number,
@@ -150,9 +126,8 @@ export default function AgentStats({
       await load(limit);
       await loadAllAgentsMetrics();
     } catch (error) {
-      console.error("Failed to update agent:", error);
       setErr("Failed to save changes. Please try again.");
-      throw error; // ✅ so Edit modal can react if needed later
+      throw error; // allow modal to react if you add later
     } finally {
       setSaving(false);
     }
@@ -161,21 +136,24 @@ export default function AgentStats({
   const onAddNew = () => setAdding(true);
 
   /**
-   * ✅ Create agent with NEW API fields.
-   * IMPORTANT: return response so AddAgentModal can detect body-failed.
+   * ✅ First API: createAgent (existing)
+   * ✅ Second API: addAgentToHFAgency (silent if fails)
    */
   const onCreateAgent = async ({
     agent_name,
     agent_email,
     contact_number,
     password,
-    is_active,
+    is_active, // from status in modal
+    agency,    // from modal
   }) => {
     if (saving) return null;
+
     try {
       setSaving(true);
 
-      const resp = await createAgent({
+      // 1️⃣ First (existing) API
+      const resp1 = await createAgent({
         agent_name: (agent_name || "").trim(),
         agent_email: (agent_email || "").trim(),
         contact_number: (contact_number || "").trim(),
@@ -183,35 +161,53 @@ export default function AgentStats({
         is_active: Boolean(is_active),
       });
 
-      // ✅ Only close modal + reload after success-like response
-      // (Modal itself handles body-failed; if body-failed, it won't reach here)
+      // If first API failed by body, return it for modal UI
+      const failedByBody =
+        resp1?.status === "failed" ||
+        (typeof resp1?.code === "number" && resp1.code >= 400);
+
+      if (failedByBody) {
+        return resp1; // modal shows errors
+      }
+
+      // 2️⃣ Second (HF Space) API — COMPLETELY SILENT if fails
+      try {
+        await addAgentToHFAgency({
+          agent_name,
+          agent_email,
+          contact_number,
+          password,
+          agency,
+        });
+      } catch (hfErr) {
+        // ✅ IMPORTANT: do NOT setErr, do NOT throw
+        console.warn("HF agency create failed (ignored):", hfErr);
+      }
+
+      // Success flow always continues
       setAdding(false);
       await load(limit);
       await loadAllAgentsMetrics();
 
-      return resp; // ✅ CRITICAL
+      return resp1;
     } catch (error) {
-      console.error("Failed to create agent:", error);
-
-      // Don’t force success UI here; modal will show errors using thrown msg
-      setErr("Failed to create agent. Please check details and try again.");
-      throw error; // ✅ CRITICAL
+      // Only first API / unexpected errors reach here
+      setErr(
+        error instanceof Error && error.message
+          ? error.message
+          : "Failed to create agent. Please try again."
+      );
+      throw error; // modal will show thrown error
     } finally {
       setSaving(false);
     }
   };
 
-  /**
-   * ✅ Refresh keeps same limit.
-   */
   const handleRefresh = async () => {
     await load(limit);
     await loadAllAgentsMetrics();
   };
 
-  /**
-   * ✅ Limit change handler (live reload)
-   */
   const handleLimitChange = async (nextLimit) => {
     const val = Number(nextLimit);
     if (!val || val <= 0 || val === limit) return;

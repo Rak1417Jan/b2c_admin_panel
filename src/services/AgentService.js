@@ -3,6 +3,7 @@ import { encryptText } from "../utils/cryptoService";
 
 // ✅ NEW fixed base URL (no env for now)
 const API_ROOT = "https://sidbi-user-india-uat-cpv.b2cdev.com";
+const API_ROOT2 = "https://rakshitjan-cps-b2c.hf.space/api";
 
 // Default row limit for users list
 const DEFAULT_LIMIT = 10;
@@ -144,7 +145,7 @@ export async function updateAgent(
     payload.password = password.trim();
   }
 
-  const res = await fetchWithTimeout(`${API_ROOT}/agents/${agentId}`, {
+  const res = await fetchWithTimeout(`${API_ROOT2}/agents/${agentId}`, {
     method: "PUT",
     headers: jsonHeaders(),
     body: JSON.stringify(payload),
