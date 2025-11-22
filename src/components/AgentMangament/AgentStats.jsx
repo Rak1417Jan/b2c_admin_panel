@@ -7,12 +7,10 @@ import AgentProfiles from "./AgentProfiles.jsx";
 import {
   fetchAgents,
   fetchAllAgents,
-  updateAgent,
   createAgent,
 } from "../../services/AgentService";
 
 import { addAgentToHFAgency } from "../../services/Addagent"; // ✅ HF (2nd API)
-import EditAgentModal from "./EditAgentModal.jsx";
 import AddAgentModal from "./AddAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -40,11 +38,11 @@ export default function AgentStats({
   const [allAgents, setAllAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  const [limit, setLimit] = useState(10);
+  // ✅ default limit changed 10 -> 50
+  const [limit, setLimit] = useState(50);
   const requestIdRef = useRef(0);
 
   const load = async (limitOverride) => {
@@ -77,13 +75,13 @@ export default function AgentStats({
       const list = await fetchAllAgents();
       setAllAgents(list);
     } catch (error) {
-      // metrics errors should not block UI hard
       console.error("Failed to load metrics list:", error);
     }
   };
 
   useEffect(() => {
-    load(10);
+    // ✅ initial load 50 instead of 10
+    load(50);
     loadAllAgentsMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -102,57 +100,21 @@ export default function AgentStats({
     return { totalUsers, activeUsers, verifiedUsers };
   }, [allAgents]);
 
-  const onEdit = (agentRow) => {
-    if (!agentRow?.__raw) return;
-    setEditing(agentRow.__raw);
-  };
-
-  const onSaveEdit = async ({
-    agent_name,
-    contact_number,
-    status,
-    password,
-  }) => {
-    if (!editing?.agent_id) return;
-    try {
-      setSaving(true);
-      await updateAgent(editing.agent_id, {
-        agent_name,
-        contact_number,
-        status,
-        password,
-      });
-      setEditing(null);
-      await load(limit);
-      await loadAllAgentsMetrics();
-    } catch (error) {
-      setErr("Failed to save changes. Please try again.");
-      throw error; // allow modal to react if you add later
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const onAddNew = () => setAdding(true);
 
-  /**
-   * ✅ First API: createAgent (existing)
-   * ✅ Second API: addAgentToHFAgency (silent if fails)
-   */
   const onCreateAgent = async ({
     agent_name,
     agent_email,
     contact_number,
     password,
-    is_active, // from status in modal
-    agency,    // from modal
+    is_active,
+    agency,
   }) => {
     if (saving) return null;
 
     try {
       setSaving(true);
 
-      // 1️⃣ First (existing) API
       const resp1 = await createAgent({
         agent_name: (agent_name || "").trim(),
         agent_email: (agent_email || "").trim(),
@@ -161,16 +123,12 @@ export default function AgentStats({
         is_active: Boolean(is_active),
       });
 
-      // If first API failed by body, return it for modal UI
       const failedByBody =
         resp1?.status === "failed" ||
         (typeof resp1?.code === "number" && resp1.code >= 400);
 
-      if (failedByBody) {
-        return resp1; // modal shows errors
-      }
+      if (failedByBody) return resp1;
 
-      // 2️⃣ Second (HF Space) API — COMPLETELY SILENT if fails
       try {
         await addAgentToHFAgency({
           agent_name,
@@ -180,24 +138,21 @@ export default function AgentStats({
           agency,
         });
       } catch (hfErr) {
-        // ✅ IMPORTANT: do NOT setErr, do NOT throw
         console.warn("HF agency create failed (ignored):", hfErr);
       }
 
-      // Success flow always continues
       setAdding(false);
       await load(limit);
       await loadAllAgentsMetrics();
 
       return resp1;
     } catch (error) {
-      // Only first API / unexpected errors reach here
       setErr(
         error instanceof Error && error.message
           ? error.message
           : "Failed to create agent. Please try again."
       );
-      throw error; // modal will show thrown error
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -226,7 +181,6 @@ export default function AgentStats({
           </>
         ) : (
           <>
-            {/* Total Users */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
@@ -241,7 +195,6 @@ export default function AgentStats({
               </div>
             </div>
 
-            {/* Active Users */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
@@ -256,7 +209,6 @@ export default function AgentStats({
               </div>
             </div>
 
-            {/* Verified Users */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
@@ -274,7 +226,6 @@ export default function AgentStats({
         )}
       </div>
 
-      {/* Errors / Loading */}
       {err && <p className="mt-4 text-sm text-red-600">{err}</p>}
 
       {loading && !err && (
@@ -284,7 +235,6 @@ export default function AgentStats({
         </div>
       )}
 
-      {/* Profiles table */}
       <AgentProfiles
         title={title}
         subtitle={subtitle}
@@ -301,25 +251,16 @@ export default function AgentStats({
           created_at: a.created_at,
           __raw: a,
         }))}
-        onEdit={onEdit}
         limit={limit}
         onLimitChange={handleLimitChange}
       />
 
-      {/* Modals */}
-      <EditAgentModal
-        open={Boolean(editing)}
-        agent={editing}
-        onClose={() => setEditing(null)}
-        onSubmit={onSaveEdit}
-      />
       <AddAgentModal
         open={adding}
         onClose={() => setAdding(false)}
         onSubmit={onCreateAgent}
       />
 
-      {/* Saving hint */}
       {saving && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 rounded-lg bg-gray-900 text-white text-sm px-3 py-2 shadow">
           Saving changes…

@@ -5,8 +5,8 @@ import { encryptText } from "../utils/cryptoService";
 const API_ROOT = "https://sidbi-user-india-uat-cpv.b2cdev.com";
 const API_ROOT2 = "https://rakshitjan-cps-b2c.hf.space/api";
 
-// Default row limit for users list
-const DEFAULT_LIMIT = 10;
+// ✅ Default row limit for users list (changed 10 -> 50)
+const DEFAULT_LIMIT = 50;
 
 // Hardcoded role id as per your backend contract
 const DEFAULT_ROLE_ID = "691c48ae1fc6f9213d2fb158";
@@ -45,6 +45,78 @@ async function fetchWithTimeout(url, options = {}) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  ✅ BEAUTIFUL ERROR FORMATTER (for createAgent & future use)        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Convert backend field keys into human labels.
+ * Add more mappings if your backend adds new parameters later.
+ */
+function humanizeField(param) {
+  const map = {
+    phone_number: "Phone number",
+    email_address: "Email",
+    name: "Agent name",
+    password: "Password",
+    role_id: "Role",
+    is_active: "Status",
+    contact_number: "Contact number",
+    agent_email: "Agent email",
+    agent_name: "Agent name",
+    agency: "Agency",
+  };
+
+  if (map[param]) return map[param];
+
+  // fallback: "first_name" -> "First name"
+  return String(param || "Field")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Reads structured error response safely and returns a clean message.
+ * Expected error shape:
+ * {
+ *   status: "failed",
+ *   code: 400,
+ *   errors: [{ type, message, parameter }]
+ * }
+ */
+async function readApiError(res) {
+  // Try JSON first
+  try {
+    const data = await res.json();
+
+    const errs = Array.isArray(data?.errors) ? data.errors : [];
+    if (errs.length > 0) {
+      // Build user-friendly lines
+      const lines = errs.map((e) => {
+        const field = humanizeField(e?.parameter);
+        const msg = e?.message || "Invalid value.";
+        return `${field} is invalid. ${msg}`;
+      });
+
+      // If multiple errors, join nicely
+      return lines.join("  ");
+    }
+
+    // If message exists but no errors array
+    if (data?.message) return String(data.message);
+
+  } catch {
+    // ignore json parse errors and fallback to text
+  }
+
+  // Fallback to plain text (if backend returns html/text)
+  const text = await res.text().catch(() => "");
+  if (text) return text;
+
+  // Last fallback
+  return `Request failed (HTTP ${res.status}). Please try again.`;
+}
+
 /**
  * Normalize NEW `/users` API item into a stable "agent-like" shape
  * that your UI / modals can safely use.
@@ -69,10 +141,7 @@ function normalizeUserToAgent(u) {
 
 /**
  * ✅ NEW API
- * GET /api/backend/v1/users?limit=10
- *
- * Old signature kept to avoid UI glitches.
- * page/search ignored because backend doesn't support them now.
+ * GET /api/backend/v1/users?limit=50
  */
 export async function fetchAgents({
   page = 1, // kept for compatibility (ignored)
@@ -92,16 +161,16 @@ export async function fetchAgents({
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Users fetch failed (HTTP ${res.status})${text ? `: ${text}` : ""}`
-    );
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   const data = await res.json();
 
   const raw = Array.isArray(data?.data) ? data.data : [];
-  const agents = raw.map(normalizeUserToAgent);
+
+  // ✅ Reverse order so last item shows first
+  const agents = raw.map(normalizeUserToAgent).reverse();
 
   // Backend doesn't send pagination -> safe fallback
   const pagination = {
@@ -118,7 +187,7 @@ export async function fetchAgents({
 
 /**
  * ✅ For metrics:
- * Old `/agents` is gone, so reuse `/users` with big limit.
+ * reuse `/users` with big limit.
  */
 export async function fetchAllAgents() {
   const BIG_LIMIT = 5000;
@@ -128,8 +197,6 @@ export async function fetchAllAgents() {
 
 /**
  * ❗Still old endpoint unless your backend provides new update API.
- * No auth, no credentials.
- * If update endpoint changes, replace URL only.
  */
 export async function updateAgent(
   agentId,
@@ -152,10 +219,8 @@ export async function updateAgent(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Update failed (HTTP ${res.status})${text ? `: ${text}` : ""}`
-    );
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   return res.json();
@@ -191,10 +256,8 @@ export async function createAgent({
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `Create failed (HTTP ${res.status})${text ? `: ${text}` : ""}`
-    );
+    const msg = await readApiError(res);
+    throw new Error(msg);
   }
 
   return res.json();

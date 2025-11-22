@@ -9,7 +9,6 @@ import {
   XCircle,
   BadgeCheck,
   BadgeX,
-  PencilLine,
   RefreshCcw,
   CalendarClock,
 } from "lucide-react";
@@ -67,11 +66,6 @@ function SkeletonTableRow() {
       <td className="py-4 px-4"><SkeletonPill width="w-14" /></td>
       <td className="py-4 px-4"><SkeletonPill width="w-16" /></td>
       <td className="py-4 px-4"><SkeletonBar width="w-36" /></td>
-      <td className="py-4 px-4 text-right">
-        <div className="inline-flex items-center rounded-md border border-gray-200 bg-gray-100 px-6 py-2 animate-pulse">
-          <div className="h-3.5 w-16 rounded-full bg-gray-200" />
-        </div>
-      </td>
     </tr>
   );
 }
@@ -102,16 +96,13 @@ function SkeletonMobileCard() {
       </div>
 
       <div className="mt-3 h-2.5 w-40 rounded-full bg-gray-200" />
-
-      <div className="mt-3 flex justify-end">
-        <div className="h-8 w-20 rounded-lg bg-gray-100" />
-      </div>
     </div>
   );
 }
 
 /* ---------- Limit options ---------- */
-const LIMIT_OPTIONS = [5, 10, 20, 50, 100];
+// ✅ changed to start from 50
+const LIMIT_OPTIONS = [50, 100, 150];
 
 export default function AgentProfiles({
   title = "Agent Management",
@@ -122,14 +113,12 @@ export default function AgentProfiles({
   onRefresh,
   loading = false,
 
-  // ✅ New props
   limit = 10,
   onLimitChange,
 }) {
   const list = useMemo(() => agents, [agents]);
   const isEmpty = !loading && list.length === 0;
 
-  // local limit input (custom)
   const [limitInput, setLimitInput] = useState(String(limit));
   const debounceRef = useRef(null);
 
@@ -167,7 +156,6 @@ export default function AgentProfiles({
     }
   };
 
-  /* ---------- Desktop/Table content ---------- */
   let tableBodyContent;
   if (loading) {
     tableBodyContent = SKELETON_ROW_KEYS.map((k) => (
@@ -176,7 +164,7 @@ export default function AgentProfiles({
   } else if (isEmpty) {
     tableBodyContent = (
       <tr>
-        <td colSpan={8} className="py-12 px-4">
+        <td colSpan={7} className="py-12 px-4">
           <div className="flex flex-col items-center justify-center text-center">
             <p className="text-gray-800 font-semibold text-base">
               No users found
@@ -194,15 +182,12 @@ export default function AgentProfiles({
         key={a.id}
         className="group transition-colors duration-150 odd:bg-white even:bg-slate-50/60 hover:bg-blue-50/70"
       >
-        {/* ID */}
         <td className="py-4 px-4 font-semibold text-gray-800 whitespace-nowrap">
           {a.id}
         </td>
 
-        {/* Name */}
         <td className="py-4 px-4 whitespace-nowrap text-gray-900" title={a.name}>
           <div className="flex items-center gap-3">
-            {/* Avatar initial */}
             <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
               {(a.name || "U").slice(0, 1).toUpperCase()}
             </div>
@@ -210,7 +195,6 @@ export default function AgentProfiles({
           </div>
         </td>
 
-        {/* Email */}
         <td className="py-4 px-4">
           <div className="flex items-center gap-2 text-[13px] text-blue-700 whitespace-nowrap">
             <Mail className="h-3.5 w-3.5 min-w-3.5" />
@@ -224,7 +208,6 @@ export default function AgentProfiles({
           </div>
         </td>
 
-        {/* Phone */}
         <td className="py-4 px-4 whitespace-nowrap text-gray-700">
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4 min-w-4 text-gray-500" />
@@ -232,7 +215,6 @@ export default function AgentProfiles({
           </div>
         </td>
 
-        {/* Active */}
         <td className="py-4 px-4">
           {a.is_active ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1.5 border border-emerald-100 text-xs font-semibold whitespace-nowrap">
@@ -247,7 +229,6 @@ export default function AgentProfiles({
           )}
         </td>
 
-        {/* Verified */}
         <td className="py-4 px-4">
           {a.is_verified ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 text-indigo-700 px-3 py-1.5 border border-indigo-100 text-xs font-semibold whitespace-nowrap">
@@ -262,31 +243,16 @@ export default function AgentProfiles({
           )}
         </td>
 
-        {/* Created At */}
         <td className="py-4 px-4 whitespace-nowrap text-gray-700">
           <div className="inline-flex items-center gap-2 rounded-lg bg-slate-50 text-slate-700 px-3 py-1.5 border border-slate-200 text-xs whitespace-nowrap">
             <CalendarClock className="h-3.5 w-3.5" />
             {fmtDate(a.created_at)}
           </div>
         </td>
-
-        {/* Actions */}
-        <td className="py-4 px-4 text-right whitespace-nowrap">
-          <button
-            type="button"
-            onClick={() => onEdit?.(a)}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 group-hover:border-blue-200"
-            aria-label={`Edit ${a.name}`}
-          >
-            <PencilLine className="h-4 w-4" />
-            Edit
-          </button>
-        </td>
       </tr>
     ));
   }
 
-  /* ---------- Mobile Cards ---------- */
   let mobileContent;
   if (loading) {
     mobileContent = (
@@ -381,18 +347,6 @@ export default function AgentProfiles({
               <CalendarClock className="h-3.5 w-3.5" />
               Created: {fmtDate(a.created_at)}
             </div>
-
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => onEdit?.(a)}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                aria-label={`Edit ${a.name}`}
-              >
-                <PencilLine className="h-4 w-4" />
-                Edit
-              </button>
-            </div>
           </div>
         ))}
       </div>
@@ -401,7 +355,6 @@ export default function AgentProfiles({
 
   return (
     <section className="mt-6 rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 via-white to-gray-50 shadow-sm">
-      {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between p-5">
         <div>
           <h2 className="text-[18px] font-semibold text-gray-900">{title}</h2>
@@ -426,24 +379,22 @@ export default function AgentProfiles({
             className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow
                      bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
                      focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-            aria-label="Add new user"
+            aria-label="Add new Agent"
           >
             <UserPlus className="h-4 w-4" />
-            Add New User
+            Add New Agent
           </button>
         </div>
       </div>
 
       <div className="border-t border-gray-200" />
 
-      {/* Chip only (top) */}
       <div className="px-5 pt-4 pb-2">
         <div className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-2 text-sm text-gray-700 shadow-sm">
-          User Profiles
+          Agent Profiles
         </div>
       </div>
 
-      {/* Desktop Table */}
       <div className="hidden md:block px-5 pb-5">
         <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
@@ -451,7 +402,7 @@ export default function AgentProfiles({
               <thead className="bg-white text-xs text-gray-600 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
                 <tr className="[&>th]:py-3.5 [&>th]:px-4 [&>th]:whitespace-nowrap">
                   <th className="w-36 font-semibold uppercase tracking-wide">
-                    User ID
+                    Agent ID
                   </th>
                   <th className="min-w-[240px] font-semibold uppercase tracking-wide">
                     Name
@@ -471,9 +422,6 @@ export default function AgentProfiles({
                   <th className="min-w-[220px] font-semibold uppercase tracking-wide">
                     Created At
                   </th>
-                  <th className="w-32 text-right pr-4 font-semibold uppercase tracking-wide">
-                    Actions
-                  </th>
                 </tr>
               </thead>
 
@@ -481,7 +429,6 @@ export default function AgentProfiles({
             </table>
           </div>
 
-          {/* ✅ Bottom Footer: count left + limit right */}
           <div className="border-t border-gray-200 bg-gradient-to-r from-white to-gray-50 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-gray-600">
               {loading ? (
@@ -499,7 +446,6 @@ export default function AgentProfiles({
               )}
             </div>
 
-            {/* Limit Controls (bottom-right) */}
             <div className="flex flex-wrap items-center gap-2 justify-end">
               <label className="text-sm text-gray-600">Rows:</label>
 
@@ -541,7 +487,6 @@ export default function AgentProfiles({
         </div>
       </div>
 
-      {/* Mobile Cards */}
       <div className="md:hidden px-5 pb-5">{mobileContent}</div>
     </section>
   );
