@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { loginAdmin } from "../services/LoginApiServices";
 import logoImg from "../assets/logo/logo.png";
 
@@ -92,14 +92,14 @@ export default function Login() {
 
         <div className="p-6 max-w-md rounded-xl bg-white/10 border border-white/20 backdrop-blur shadow-lg">
           <p className="text-sm leading-relaxed">
-            “Bizz 2 Credit transformed how we manage finances — fast, reliable,
+            “SIDBI transformed how we manage finances — fast, reliable,
             and secure.”
           </p>
           <p className="text-white/80 text-sm mt-3">— Financial Partner</p>
         </div>
 
         <p className="text-white/80 text-xs">
-          © 2025 Bizz 2 Credit. All rights reserved.
+          © 2025 SIDBI. All rights reserved.
         </p>
       </div>
 

@@ -27,10 +27,11 @@ function isValidEmail(value) {
   return emailRegex.test(trimmed);
 }
 
+// ✅ UPDATED: must be 10 digits AND start with 6/7/8/9
 function isValidContactNumber(value) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return false;
-  const phoneRegex = /^\d{10}$/;
+  const phoneRegex = /^[6-9]\d{9}$/;
   return phoneRegex.test(trimmed);
 }
 
@@ -53,13 +54,55 @@ function normalizeApiErrors(payload) {
   }));
 }
 
+/* ---------- Local form validator (reduces cognitive complexity) ---------- */
+function validateForm(form) {
+  const newErrors = {
+    agent_name: "",
+    agent_email: "",
+    contact_number: "",
+    password: "",
+    agency: "",
+  };
+
+  if (!form.agent_name.trim()) {
+    newErrors.agent_name = "Agent name is required.";
+  } else if (!isValidAgentName(form.agent_name)) {
+    newErrors.agent_name = "Name can only contain letters and spaces.";
+  }
+
+  if (!form.agent_email.trim()) {
+    newErrors.agent_email = "Agent email is required.";
+  } else if (!isValidEmail(form.agent_email)) {
+    newErrors.agent_email = "Please enter a valid email address.";
+  }
+
+  if (!form.contact_number.trim()) {
+    newErrors.contact_number = "Contact number is required.";
+  } else if (!isValidContactNumber(form.contact_number)) {
+    newErrors.contact_number = "Enter a valid 10-digit mobile number.";
+  }
+
+  if (!form.password.trim()) {
+    newErrors.password = "Password is required.";
+  } else if (!isValidPassword(form.password)) {
+    newErrors.password =
+      "Password must be 8+ chars with 1 uppercase, 1 number, and 1 special character.";
+  }
+
+  if (!form.agency.trim()) {
+    newErrors.agency = "Agency is required.";
+  }
+
+  return newErrors;
+}
+
 export default function AddAgentModal({ open, onClose, onSubmit }) {
   const [form, setForm] = useState({
     agent_name: "",
     agent_email: "",
     contact_number: "",
     password: "",
-    agency: "",       // ✅ required for second API
+    agency: "", // ✅ required for second API
     status: "active", // ✅ keep for first API only
   });
 
@@ -125,43 +168,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
   const onSave = async () => {
     if (saving) return;
 
-    const newErrors = {
-      agent_name: "",
-      agent_email: "",
-      contact_number: "",
-      password: "",
-      agency: "",
-    };
-
-    if (!form.agent_name.trim()) {
-      newErrors.agent_name = "Agent name is required.";
-    } else if (!isValidAgentName(form.agent_name)) {
-      newErrors.agent_name = "Name can only contain letters and spaces.";
-    }
-
-    if (!form.agent_email.trim()) {
-      newErrors.agent_email = "Agent email is required.";
-    } else if (!isValidEmail(form.agent_email)) {
-      newErrors.agent_email = "Please enter a valid email address.";
-    }
-
-    if (!form.contact_number.trim()) {
-      newErrors.contact_number = "Contact number is required.";
-    } else if (!isValidContactNumber(form.contact_number)) {
-      newErrors.contact_number = "Enter a valid 10-digit mobile number.";
-    }
-
-    if (!form.password.trim()) {
-      newErrors.password = "Password is required.";
-    } else if (!isValidPassword(form.password)) {
-      newErrors.password =
-        "Password must be 8+ chars with 1 uppercase, 1 number, and 1 special character.";
-    }
-
-    if (!form.agency.trim()) {
-      newErrors.agency = "Agency is required.";
-    }
-
+    const newErrors = validateForm(form);
     const hasError = Object.values(newErrors).some(Boolean);
     if (hasError) {
       setErrors(newErrors);
@@ -179,14 +186,12 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
         agent_email: form.agent_email.trim(),
         contact_number: form.contact_number.trim(),
         password: form.password,
-        agency: form.agency.trim(),              // ✅ for 2nd API
-        is_active: form.status === "active",     // ✅ for 1st API only
+        agency: form.agency.trim(), // ✅ for 2nd API
+        is_active: form.status === "active", // ✅ for 1st API only
       });
 
-      // If nothing returned (e.g., blocked by saving), don’t show success
       if (!resp) return;
 
-      // FIRST API “body failed” guard
       const failedByBody =
         resp?.status === "failed" ||
         (typeof resp?.code === "number" && resp.code >= 400);
@@ -201,7 +206,6 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
         return;
       }
 
-      // ✅ success only for first API success
       setSuccessMsg("Agent created successfully.");
       setForm({
         agent_name: "",
@@ -265,7 +269,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                     <XCircle className="mt-[2px] h-3.5 w-3.5 text-red-600" />
                     <div>
                       <p className="font-medium capitalize">
-                        {String(e.field).replace(/_/g, " ")}
+                        {String(e.field).replaceAll("_", " ")}
                       </p>
                       <p className="text-red-600/90">{e.message}</p>
                     </div>
@@ -293,6 +297,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
               name="agent_name"
               value={form.agent_name}
               onChange={handleChange}
+              autoComplete="off"
               className={`mt-1 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition ${
                 errors.agent_name
                   ? "border-red-400 bg-red-50 focus:ring-red-500/40"
@@ -316,6 +321,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
               type="email"
               value={form.agent_email}
               onChange={handleChange}
+              autoComplete="off"
               className={`mt-1 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition ${
                 errors.agent_email
                   ? "border-red-400 bg-red-50 focus:ring-red-500/40"
@@ -330,7 +336,10 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Contact number */}
           <div>
-            <label htmlFor={contactId} className="text-xs sm:text-sm text-gray-700">
+            <label
+              htmlFor={contactId}
+              className="text-xs sm:text-sm text-gray-700"
+            >
               Contact number
             </label>
             <input
@@ -339,6 +348,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
               type="tel"
               value={form.contact_number}
               onChange={handleChange}
+              autoComplete="off"
               className={`mt-1 w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition ${
                 errors.contact_number
                   ? "border-red-400 bg-red-50 focus:ring-red-500/40"
@@ -355,7 +365,10 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Agency */}
           <div>
-            <label htmlFor={agencyId} className="text-xs sm:text-sm text-gray-700">
+            <label
+              htmlFor={agencyId}
+              className="text-xs sm:text-sm text-gray-700"
+            >
               Agency
             </label>
             <div
@@ -371,6 +384,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                 name="agency"
                 value={form.agency}
                 onChange={handleChange}
+                autoComplete="off"
                 className="w-full bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400"
                 placeholder="Enter agency name"
               />
@@ -382,7 +396,10 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Status (first API only) */}
           <div>
-            <label htmlFor={statusId} className="text-xs sm:text-sm text-gray-700">
+            <label
+              htmlFor={statusId}
+              className="text-xs sm:text-sm text-gray-700"
+            >
               Status
             </label>
             <select
@@ -390,6 +407,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
               name="status"
               value={form.status}
               onChange={handleChange}
+              autoComplete="off"
               className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-600/30 bg-white transition"
             >
               <option value="active">Active</option>
@@ -404,7 +422,10 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
           {/* Password */}
           <div>
-            <label htmlFor={passwordId} className="text-xs sm:text-sm text-gray-700">
+            <label
+              htmlFor={passwordId}
+              className="text-xs sm:text-sm text-gray-700"
+            >
               Set password
             </label>
             <div
@@ -420,6 +441,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
                 type={showPw ? "text" : "password"}
                 value={form.password}
                 onChange={handleChange}
+                autoComplete="new-password"
                 className="w-full bg-transparent outline-none text-sm text-gray-800 placeholder:text-gray-400"
                 placeholder="Enter a secure password"
               />
@@ -467,7 +489,7 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
             {saving ? (
               <>
                 <span className="h-4 w-4 rounded-full border-2 border-white/70 border-t-transparent animate-spin" />
-                Creating...
+                {" "}Creating...
               </>
             ) : (
               "Create agent"

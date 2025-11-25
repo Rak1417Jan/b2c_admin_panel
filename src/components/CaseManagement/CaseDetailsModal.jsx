@@ -1,33 +1,92 @@
 // src/components/CaseManagement/CaseDetailsModal.jsx
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { X, Eye, MapPin, FileText, Image as ImageIcon, FileDown } from "lucide-react";
+import {
+  X,
+  Eye,
+  MapPin,
+  FileText,
+  Image as ImageIcon,
+  FileDown,
+  User,
+  Phone,
+  Mail,
+  Info,
+  Tag,
+  AlertTriangle,
+  BadgeIndianRupee,
+  CalendarClock,
+  CalendarCheck,
+  CalendarX2,
+  MapPinned,
+  ShieldCheck,
+  GraduationCap,
+  Users,
+  Home,
+  Building2,
+  Briefcase,
+  Landmark,
+  Banknote,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
 import { fetchCaseFiles, fetchFileBlob } from "../../services/CaseService";
 
 /* ---------- Extracted child components ---------- */
 
-export function InfoRow({ label, value }) {
+export function InfoRow({ label, value, icon: Icon }) {
   return (
-    <div className="flex items-start gap-3 py-2">
-      <span className="text-gray-600 text-sm font-medium min-w-[140px] flex-shrink-0">
-        {label}:
-      </span>
-      <span className="text-gray-900 text-sm font-semibold flex-1 break-words">
-        {value ?? "—"}
-      </span>
+    <div className="grid grid-cols-12 gap-3 py-2 items-start">
+      {/* Left: icon + label */}
+      <div className="col-span-5 sm:col-span-4 flex items-start gap-2 min-w-0">
+        {Icon ? (
+          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 border border-blue-100 flex-shrink-0">
+            <Icon className="h-4 w-4" />
+          </span>
+        ) : (
+          <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gray-50 text-gray-500 border border-gray-100 flex-shrink-0">
+            <Info className="h-4 w-4" />
+          </span>
+        )}
+
+        <span className="text-gray-600 text-sm font-semibold truncate">
+          {label}
+          <span className="text-gray-400 font-bold"> :</span>
+        </span>
+      </div>
+
+      {/* Right: value */}
+      <div className="col-span-7 sm:col-span-8">
+        <span className="block text-gray-900 text-sm font-semibold break-words text-right sm:text-left">
+          {value ?? "—"}
+        </span>
+      </div>
     </div>
   );
 }
 InfoRow.propTypes = {
   label: PropTypes.string.isRequired,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.bool]),
+  value: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.number,
+    PropTypes.bool,
+  ]),
+  icon: PropTypes.elementType,
 };
 
-export function Section({ title, children }) {
+export function Section({ title, children, icon: Icon }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
-      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-        <h4 className="text-base font-bold text-gray-900 tracking-tight">{title}</h4>
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 via-white to-gray-50 flex items-center gap-2">
+        {Icon ? (
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-gray-200 text-gray-700 shadow-sm">
+            <Icon className="h-4.5 w-4.5" />
+          </span>
+        ) : null}
+        <h4 className="text-base font-extrabold text-gray-900 tracking-tight">
+          {title}
+        </h4>
       </div>
       <div className="px-5 py-5">{children}</div>
     </div>
@@ -36,19 +95,30 @@ export function Section({ title, children }) {
 Section.propTypes = {
   title: PropTypes.string.isRequired,
   children: PropTypes.node,
+  icon: PropTypes.elementType,
 };
 
 /* ----------------------- Document viewer modal ----------------------- */
 
-function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, downloadName }) {
+function DocumentViewerModal({
+  open,
+  onClose,
+  fileMeta,
+  objectUrl,
+  contentType,
+  downloadName,
+}) {
   if (!open) return null;
 
   const isImage =
-    /^image\//i.test(contentType) || /\.(png|jpe?g|webp|gif)$/i.test(downloadName || "");
+    /^image\//i.test(contentType) ||
+    /\.(png|jpe?g|webp|gif)$/i.test(downloadName || "");
   const isPDF = /pdf/i.test(contentType) || /\.pdf$/i.test(downloadName || "");
 
   let viewerBody = (
-    <div className="py-10 text-center text-sm text-gray-600">No preview available.</div>
+    <div className="py-10 text-center text-sm text-gray-600">
+      No preview available.
+    </div>
   );
   if (objectUrl) {
     if (isImage) {
@@ -57,7 +127,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
           <img
             src={objectUrl}
             alt={fileMeta?.original_name || "document"}
-            className="max-h-[70vh] w-full object-contain rounded-lg border border-gray-200 shadow-lg"
+            className="max-h-[70vh] w-full object-contain rounded-xl border border-gray-200 shadow-lg bg-white"
           />
         </div>
       );
@@ -66,7 +136,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
         <iframe
           title={fileMeta?.original_name || "PDF"}
           src={objectUrl}
-          className="w-full h-[70vh] rounded-lg border border-gray-200 shadow-lg"
+          className="w-full h-[70vh] rounded-xl border border-gray-200 shadow-lg bg-white"
         />
       );
     } else {
@@ -79,7 +149,7 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
           <a
             href={objectUrl}
             download={downloadName || fileMeta?.original_name || "file"}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 transition-all shadow-sm hover:shadow"
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-gray-700 hover:bg-gray-50 transition-all shadow-sm hover:shadow"
           >
             <FileDown className="h-4 w-4" />
             Download
@@ -98,7 +168,10 @@ function DocumentViewerModal({ open, onClose, fileMeta, objectUrl, contentType, 
               {fileMeta?.original_name || "Document"}
             </h3>
             <p className="text-sm text-gray-600 truncate mt-0.5">
-              Type: <span className="font-semibold text-gray-800">{fileMeta?.file_type || "—"}</span>
+              Type:{" "}
+              <span className="font-semibold text-gray-800">
+                {fileMeta?.file_type || "—"}
+              </span>
             </p>
           </div>
           <button
@@ -180,28 +253,33 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
     });
   }, []);
 
-  const setImagePreviewSuccess = useCallback((fileId, { url, contentType, name }) => {
-    setPreviews((prev) => {
-      const next = { ...prev };
-      const existing = next[fileId];
-      const base = existing ? { ...existing } : {};
-      next[fileId] = {
-        ...base,
-        loading: false,
-        url,
-        contentType: contentType || "application/octet-stream",
-        name: name || "file",
-        isImage: true,
-      };
-      return next;
-    });
-  }, []);
+  const setImagePreviewSuccess = useCallback(
+    (fileId, { url, contentType, name }) => {
+      setPreviews((prev) => {
+        const next = { ...prev };
+        const existing = next[fileId];
+        const base = existing ? { ...existing } : {};
+        next[fileId] = {
+          ...base,
+          loading: false,
+          url,
+          contentType: contentType || "application/octet-stream",
+          name: name || "file",
+          isImage: true,
+        };
+        return next;
+      });
+    },
+    []
+  );
 
   const setImagePreviewFailed = useCallback((fileId) => {
     setPreviews((prev) => {
       const next = { ...prev };
       const existing = next[fileId];
-      next[fileId] = existing ? { ...existing, loading: false, isImage: true } : { loading: false, isImage: true };
+      next[fileId] = existing
+        ? { ...existing, loading: false, isImage: true }
+        : { loading: false, isImage: true };
       return next;
     });
   }, []);
@@ -273,10 +351,13 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
         setDocs(files);
 
         // Preload previews ONLY for images (thumbnails shown inline)
-        const imageFiles = files.filter((f) => isImageName(f?.original_name || ""));
+        const imageFiles = files.filter((f) =>
+          isImageName(f?.original_name || "")
+        );
         await preloadImagePreviews(imageFiles, cancelledRef);
       } catch (e) {
-        if (!cancelledRef.current) setDocError(e?.message || "Failed to load documents");
+        if (!cancelledRef.current)
+          setDocError(e?.message || "Failed to load documents");
       } finally {
         if (!cancelledRef.current) setDocLoading(false);
       }
@@ -318,7 +399,9 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
           } catch {}
         }
 
-        const { blob, contentType, filename } = await fetchFileBlob(file.file_id);
+        const { blob, contentType, filename } = await fetchFileBlob(
+          file.file_id
+        );
         const url = URL.createObjectURL(blob);
         setViewerBorrowed(false); // we own this URL
         setViewerMeta(file);
@@ -350,15 +433,18 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
     if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
     return `${(b / (1024 * 1024)).toFixed(1)} MB`;
   };
-  const prettyDate = (iso) => (iso ? new Date(iso).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  }) : "—");
+  const prettyDate = (iso) =>
+    iso
+      ? new Date(iso).toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        })
+      : "—";
   const googleMapsLink = (lat, lng) =>
     typeof lat === "number" && typeof lng === "number"
       ? `https://maps.google.com/?q=${lat},${lng}`
@@ -367,11 +453,23 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
   const fileTypeBadgeTone = (t) => {
     if (!t) return "bg-gray-100 text-gray-700 border-gray-200";
     const v = String(t).toLowerCase();
-    if (v.includes("aadhaar")) return "bg-emerald-50 text-emerald-700 border-emerald-200";
-    if (v.includes("customer")) return "bg-blue-50 text-blue-700 border-blue-200";
-    if (v.includes("residence")) return "bg-amber-50 text-amber-700 border-amber-200";
-    if (v.includes("business")) return "bg-purple-50 text-purple-700 border-purple-200";
+    if (v.includes("aadhaar"))
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    if (v.includes("customer"))
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    if (v.includes("residence"))
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    if (v.includes("business"))
+      return "bg-purple-50 text-purple-700 border-purple-200";
     return "bg-gray-100 text-gray-700 border-gray-200";
+  };
+
+  // INR formatter for financial area
+  const formatINR = (val) => {
+    if (val === null || val === undefined || val === "") return "—";
+    const num = Number(val);
+    if (Number.isFinite(num)) return `₹${num.toLocaleString("en-IN")}`;
+    return String(val);
   };
 
   /* ---------------- Extracted docs content (no nested ternary) ---------------- */
@@ -381,8 +479,11 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
     docsContent = (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {skeletonKeysRef.current.map((k) => (
-          <div key={k} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="h-40 w-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg animate-pulse" />
+          <div
+            key={k}
+            className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+          >
+            <div className="h-40 w-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl animate-pulse" />
             <div className="mt-4 h-4 w-40 bg-gray-100 rounded animate-pulse" />
             <div className="mt-2 h-3 w-24 bg-gray-100 rounded animate-pulse" />
             <div className="mt-2 h-3 w-28 bg-gray-100 rounded animate-pulse" />
@@ -394,13 +495,20 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
       </div>
     );
   } else if (docs.length === 0) {
-    docsContent = <p className="text-sm text-gray-600">No documents uploaded for this case.</p>;
+    docsContent = (
+      <p className="text-sm text-gray-600">
+        No documents uploaded for this case.
+      </p>
+    );
   } else {
     docsContent = (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {docs.map((f) => {
           const badgeClass = fileTypeBadgeTone(f.file_type);
-          const mapsHref = googleMapsLink(f?.geo_location?.lat, f?.geo_location?.lng);
+          const mapsHref = googleMapsLink(
+            f?.geo_location?.lat,
+            f?.geo_location?.lng
+          );
 
           // Geolocation block (explicit)
           let geoNode = <span>—</span>;
@@ -416,7 +524,8 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 rel="noreferrer"
                 title="Open in Google Maps"
               >
-                {f.geo_location.lat.toFixed(6)}, {f.geo_location.lng.toFixed(6)}
+                {f.geo_location.lat.toFixed(6)},{" "}
+                {f.geo_location.lng.toFixed(6)}
               </a>
             ) : (
               <span>
@@ -438,7 +547,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
           if (pv?.isImage) {
             if (pv.loading) {
               inlinePreview = (
-                <div className="mt-4 h-48 w-full rounded-lg border border-gray-200 overflow-hidden relative shadow-sm">
+                <div className="mt-4 h-48 w-full rounded-xl border border-gray-200 overflow-hidden relative shadow-sm">
                   <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
                 </div>
               );
@@ -447,7 +556,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 <img
                   src={pv.url}
                   alt={f.original_name || "document"}
-                  className="mt-4 h-48 w-full object-cover rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                  className="mt-4 h-48 w-full object-cover rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
                 />
               );
             }
@@ -456,7 +565,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
           return (
             <div
               key={f._id || f.file_id}
-              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-lg transition-all"
+              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm hover:shadow-lg transition-all"
             >
               {/* Header row */}
               <div className="flex items-center justify-between">
@@ -467,7 +576,9 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                   {thumbIcon}
                   {f.file_type || "document"}
                 </span>
-                <span className="text-xs font-medium text-gray-500">{prettyBytes(f.file_size)}</span>
+                <span className="text-xs font-medium text-gray-500">
+                  {prettyBytes(f.file_size)}
+                </span>
               </div>
 
               {/* Name + Uploaded */}
@@ -491,11 +602,13 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
 
               {/* Actions */}
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-[10px] text-gray-500 font-medium">ID: {f.file_id}</span>
+                <span className="text-[10px] text-gray-500 font-medium">
+                  ID: {f.file_id}
+                </span>
                 <button
                   type="button"
                   onClick={() => viewDocument(f)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   title="View document"
                 >
                   <Eye className="h-4 w-4" />
@@ -515,9 +628,14 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
         {/* Header (single close) */}
         <div className="px-7 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50">
           <div className="min-w-0">
-            <h3 className="text-xl font-bold text-gray-900 truncate tracking-tight">Case Details</h3>
+            <h3 className="text-xl font-extrabold text-gray-900 truncate tracking-tight">
+              Case Details
+            </h3>
             <p className="text-sm text-gray-600 truncate mt-1">
-              Case ID: <span className="font-bold text-gray-800">{caseData.case_id}</span>
+              Case ID:{" "}
+              <span className="font-bold text-gray-800">
+                {caseData.case_id}
+              </span>
             </p>
           </div>
           <button
@@ -532,131 +650,277 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
         </div>
 
         {/* Scrollable content */}
-        <div className="px-7 py-6 space-y-6 max-h-[75vh] overflow-y-auto bg-gradient-to-br from-gray-50 to-white">
+        <div className="px-7 py-6 space-y-6 max-h-[75vh] overflow-y-auto bg-gradient-to-br from-gray-50 via-white to-gray-50">
           {/* Applicant summary */}
-          <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-6 shadow-sm hover:shadow-md transition-shadow">
+          <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-6 shadow-sm hover:shadow-md transition-shadow">
             <div className="space-y-1">
-              <InfoRow label="Applicant" value={caseData.case_applicant_name} />
-              <InfoRow label="Contact" value={caseData.case_applicant_contact} />
-              <InfoRow label="Status" value={caseData.status} />
-              <InfoRow label="Case Type" value={caseData.case_type} />
-              <InfoRow label="Priority" value={caseData.priority} />
+              <InfoRow
+                label="Applicant"
+                value={caseData.case_applicant_name}
+                icon={User}
+              />
+              <InfoRow
+                label="Contact"
+                value={caseData.case_applicant_contact}
+                icon={Phone}
+              />
+              <InfoRow label="Status" value={caseData.status} icon={ShieldCheck} />
+              <InfoRow label="Case Type" value={caseData.case_type} icon={Tag} />
+              <InfoRow
+                label="Priority"
+                value={caseData.priority}
+                icon={AlertTriangle}
+              />
               <InfoRow
                 label="Loan Amount"
-                value={`₹${Number(caseData.loan_amount || 0).toLocaleString("en-IN")}`}
+                value={`₹${Number(caseData.loan_amount || 0).toLocaleString(
+                  "en-IN"
+                )}`}
+                icon={BadgeIndianRupee}
               />
-              <InfoRow label="Created At" value={prettyDate(caseData.created_at)} />
-              <InfoRow label="Assigned At" value={prettyDate(caseData.assigned_at)} />
-              <InfoRow label="Completed At" value={prettyDate(caseData.completed_at)} />
-              <InfoRow label="Address" value={caseData.address} />
-              {caseData.remarks && <InfoRow label="Remarks" value={caseData.remarks} />}
+              <InfoRow
+                label="Created At"
+                value={prettyDate(caseData.created_at)}
+                icon={CalendarClock}
+              />
+              <InfoRow
+                label="Assigned At"
+                value={prettyDate(caseData.assigned_at)}
+                icon={CalendarCheck}
+              />
+              <InfoRow
+                label="Completed At"
+                value={prettyDate(caseData.completed_at)}
+                icon={CalendarX2}
+              />
+              <InfoRow
+                label="Address"
+                value={caseData.address}
+                icon={MapPinned}
+              />
+              {caseData.remarks && (
+                <InfoRow label="Remarks" value={caseData.remarks} icon={FileText} />
+              )}
             </div>
           </div>
 
           {/* Uploaded Documents */}
-          <Section title="Uploaded Documents">
-            {docError ? <div className="mb-4 text-sm text-red-600 font-medium">{docError}</div> : null}
+          <Section title="Uploaded Documents" icon={FileText}>
+            {docError ? (
+              <div className="mb-4 text-sm text-red-600 font-medium">
+                {docError}
+              </div>
+            ) : null}
             {docsContent}
           </Section>
 
           {/* Demographic */}
-          <Section title="Demographic Details">
+          <Section title="Demographic Details" icon={Users}>
             <div className="space-y-1">
-              <InfoRow label="Email" value={demographic_details?.contact_information?.email_id} />
-              <InfoRow label="Mobile" value={demographic_details?.contact_information?.mobile_number} />
-              <InfoRow label="Aadhaar Photo Match" value={aadhaarMatchText} />
-              <InfoRow label="Gender" value={demographic_details?.personal_details?.gender} />
-              <InfoRow label="Education" value={demographic_details?.personal_details?.education} />
+              <InfoRow
+                label="Email"
+                value={demographic_details?.contact_information?.email_id}
+                icon={Mail}
+              />
+              <InfoRow
+                label="Mobile"
+                value={demographic_details?.contact_information?.mobile_number}
+                icon={Phone}
+              />
+              <InfoRow
+                label="Aadhaar Photo Match"
+                value={aadhaarMatchText}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Gender"
+                value={demographic_details?.personal_details?.gender}
+                icon={User}
+              />
+              <InfoRow
+                label="Education"
+                value={demographic_details?.personal_details?.education}
+                icon={GraduationCap}
+              />
               <InfoRow
                 label="Family Members"
-                value={demographic_details?.personal_details?.number_of_family_members}
+                value={
+                  demographic_details?.personal_details?.number_of_family_members
+                }
+                icon={Users}
               />
               <InfoRow
                 label="Residence Type"
-                value={demographic_details?.address_details?.residence_address_type}
+                value={
+                  demographic_details?.address_details?.residence_address_type
+                }
+                icon={Home}
               />
-              <InfoRow label="City" value={demographic_details?.address_details?.city} />
-              <InfoRow label="State" value={demographic_details?.address_details?.state} />
-              <InfoRow label="District" value={demographic_details?.address_details?.district} />
-              <InfoRow label="Pincode" value={demographic_details?.address_details?.pincode} />
+              <InfoRow
+                label="City"
+                value={demographic_details?.address_details?.city}
+                icon={MapPin}
+              />
+              <InfoRow
+                label="State"
+                value={demographic_details?.address_details?.state}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="District"
+                value={demographic_details?.address_details?.district}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Pincode"
+                value={demographic_details?.address_details?.pincode}
+                icon={Landmark}
+              />
               <InfoRow
                 label="Residential Address"
                 value={demographic_details?.address_details?.residential_address}
+                icon={MapPinned}
               />
             </div>
           </Section>
 
           {/* Business */}
-          <Section title="Business Details">
+          <Section title="Business Details" icon={Building2}>
             <div className="space-y-1">
               <InfoRow
                 label="Enterprise"
                 value={business_details?.enterprise_information?.enterprise_name}
+                icon={Building2}
               />
               <InfoRow
                 label="Organization Type"
-                value={business_details?.enterprise_information?.type_of_organization}
+                value={
+                  business_details?.enterprise_information?.type_of_organization
+                }
+                icon={Briefcase}
               />
               <InfoRow
                 label="Location"
-                value={business_details?.business_location_details?.business_location}
+                value={
+                  business_details?.business_location_details?.business_location
+                }
+                icon={MapPin}
               />
               <InfoRow
                 label="Address Type"
-                value={business_details?.business_location_details?.business_address_type}
+                value={
+                  business_details?.business_location_details
+                    ?.business_address_type
+                }
+                icon={Home}
               />
               <InfoRow
                 label="Activity"
                 value={business_details?.business_activity?.business_activity}
+                icon={Briefcase}
               />
               <InfoRow
                 label="Activity Type"
                 value={business_details?.business_activity?.activity_type}
+                icon={Tag}
               />
-              <InfoRow label="Employees" value={business_details?.business_info?.employee_count} />
+              <InfoRow
+                label="Employees"
+                value={business_details?.business_info?.employee_count}
+                icon={Users}
+              />
               <InfoRow
                 label="Years Running"
                 value={business_details?.business_info?.years_of_running_business}
+                icon={CalendarClock}
               />
               <InfoRow
                 label="Additional Business"
                 value={business_details?.business_info?.additional_business}
+                icon={Briefcase}
               />
-              <InfoRow label="Business Address" value={business_details?.business_address?.address} />
-              <InfoRow label="City" value={business_details?.business_address?.city} />
-              <InfoRow label="District" value={business_details?.business_address?.district} />
-              <InfoRow label="State" value={business_details?.business_address?.state} />
-              <InfoRow label="Pincode" value={business_details?.business_address?.pincode} />
-              <InfoRow label="Landmark" value={business_details?.business_address?.landmark} />
+              <InfoRow
+                label="Business Address"
+                value={business_details?.business_address?.address}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="City"
+                value={business_details?.business_address?.city}
+                icon={MapPin}
+              />
+              <InfoRow
+                label="District"
+                value={business_details?.business_address?.district}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="State"
+                value={business_details?.business_address?.state}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Pincode"
+                value={business_details?.business_address?.pincode}
+                icon={Landmark}
+              />
+              <InfoRow
+                label="Landmark"
+                value={business_details?.business_address?.landmark}
+                icon={Landmark}
+              />
             </div>
           </Section>
 
           {/* Financial */}
-          <Section title="Financial Details">
+          <Section title="Financial Details" icon={Wallet}>
             <div className="space-y-1">
               <InfoRow
                 label="Monthly Income (Business)"
-                value={financial_details?.business_financial_information?.monthly_income_from_business}
+                value={formatINR(
+                  financial_details?.business_financial_information
+                    ?.monthly_income_from_business
+                )}
+                icon={TrendingUp}
               />
               <InfoRow
                 label="Monthly Expense (Business)"
-                value={financial_details?.business_financial_information?.monthly_expense_of_business}
+                value={formatINR(
+                  financial_details?.business_financial_information
+                    ?.monthly_expense_of_business
+                )}
+                icon={TrendingDown}
               />
               <InfoRow
                 label="Current Loans/EMIs"
-                value={financial_details?.loans_and_emis?.current_loans_emis}
+                value={formatINR(
+                  financial_details?.loans_and_emis?.current_loans_emis
+                )}
+                icon={Banknote}
               />
               <InfoRow
                 label="Monthly Family Income"
-                value={financial_details?.family_financial_information?.monthly_family_income}
+                value={formatINR(
+                  financial_details?.family_financial_information
+                    ?.monthly_family_income
+                )}
+                icon={BadgeIndianRupee}
               />
               <InfoRow
                 label="Working Members"
-                value={financial_details?.family_financial_information?.number_of_working_members}
+                value={
+                  financial_details?.family_financial_information
+                    ?.number_of_working_members
+                }
+                icon={Users}
               />
               <InfoRow
                 label="Monthly Family Expense"
-                value={financial_details?.family_financial_information?.monthly_family_expense}
+                value={formatINR(
+                  financial_details?.family_financial_information
+                    ?.monthly_family_expense
+                )}
+                icon={Wallet}
               />
             </div>
           </Section>

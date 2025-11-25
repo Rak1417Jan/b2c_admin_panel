@@ -153,9 +153,16 @@ export default function CaseManagement() {
   async function loadAgents() {
     try {
       const allAgents = await fetchHFAgents();
+
       setAgentList(
         allAgents
-          .filter((a) => a?.agent_id && a?.agent_name)
+          // ✅ ONLY active agents should appear in UI
+          .filter(
+            (a) =>
+              a?.agent_id &&
+              a?.agent_name &&
+              String(a?.status || "").toLowerCase() === "active"
+          )
           .map((a) => ({
             agent_id: a.agent_id,
             agent_name: a.agent_name,
@@ -241,7 +248,7 @@ export default function CaseManagement() {
 
   const handleRefresh = () => {
     load();
-    loadAgents();     // ✅ HF refresh
+    loadAgents(); // ✅ HF refresh
     loadAllCases();
   };
 
@@ -336,7 +343,7 @@ export default function CaseManagement() {
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
         caseData={editing}
-        agents={agentList}     // ✅ HF agents list
+        agents={agentList} // ✅ ONLY active HF agents now
         onSubmitAssign={handleAssignAgent}
         saving={saving}
       />
