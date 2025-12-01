@@ -12,6 +12,7 @@ import {
 
 import { addAgentToHFAgency } from "../../services/Addagent"; // ✅ HF (2nd API)
 import AddAgentModal from "./AddAgentModal.jsx";
+import EditAgentModal from "./EditAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 
@@ -274,3 +275,6 @@ AgentStats.propTypes = {
   title: PropTypes.string,
   subtitle: PropTypes.string,
 };
+
+
+

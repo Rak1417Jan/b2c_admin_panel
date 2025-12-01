@@ -5,6 +5,7 @@ import AgentStats from "../components/AgentMangament/AgentStats";
 import CaseManagement from "../components/CaseManagement/CaseManagement";
 import { logoutAdmin } from "../services/LoginApiServices";
 import logoImg from "../assets/logo/logo.png";
+import EditAgentModal from "../components/AgentMangament/EditAgentModal";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -91,7 +92,9 @@ export default function Dashboard() {
 
           <section className="mt-3">
             {isAgent ? (
+              <>
               <AgentStats />
+              </>
             ) : (
               <CaseManagement />
             )}

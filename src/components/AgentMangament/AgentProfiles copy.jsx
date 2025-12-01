@@ -13,9 +13,6 @@ import {
   CalendarClock,
   PencilIcon,
 } from "lucide-react";
-import EditAgentModal from "./EditAgentModal";
-import { updateAgent } from "../../services/AgentService";
-// import { updateAgent } from "../../services/agentServices";
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
@@ -116,6 +113,7 @@ export default function AgentProfiles({
   onEdit,
   onRefresh,
   loading = false,
+
   limit = 10,
   onLimitChange,
 }) {
@@ -123,8 +121,6 @@ export default function AgentProfiles({
   const isEmpty = !loading && list.length === 0;
 
   const [limitInput, setLimitInput] = useState(String(limit));
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState(null);
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -161,46 +157,6 @@ export default function AgentProfiles({
     }
   };
 
-  const handleEditClick = (agent) => {
-    // Transform agent data to match EditAgentModal expected format
-    const modalAgentData = {
-      agent_id: agent.id,
-      agent_name: agent.name,
-      agent_email: agent.email,
-      contact_number: agent.phone || "",
-      status: agent.is_active ? "active" : "inactive",
-      is_verified: agent.is_verified,
-    };
-    
-    setSelectedAgent(modalAgentData);
-    setEditModalOpen(true);
-  };
-
-  const handleEditSubmit = async (formData) => {
-    if (!selectedAgent) return;
-    
-    try {
-      await updateAgent(selectedAgent.agent_id, formData);
-      
-      // Refresh the agents list to show updated data
-      if (onRefresh) {
-        onRefresh();
-      }
-      
-      // Close modal after successful update
-      setEditModalOpen(false);
-      setSelectedAgent(null);
-    } catch (error) {
-      console.error("Failed to update agent:", error);
-      throw error; // Re-throw to let the modal handle the error
-    }
-  };
-
-  const handleEditClose = () => {
-    setEditModalOpen(false);
-    setSelectedAgent(null);
-  };
-
   let tableBodyContent;
   if (loading) {
     tableBodyContent = SKELETON_ROW_KEYS.map((k) => (
@@ -209,7 +165,7 @@ export default function AgentProfiles({
   } else if (isEmpty) {
     tableBodyContent = (
       <tr>
-        <td colSpan={8} className="py-12 px-4">
+        <td colSpan={7} className="py-12 px-4">
           <div className="flex flex-col items-center justify-center text-center">
             <p className="text-gray-800 font-semibold text-base">
               No users found
@@ -289,14 +245,11 @@ export default function AgentProfiles({
         </td>
 
         <td className="py-4 px-4">
-          <button
-            onClick={() => handleEditClick(a)}
-            className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 text-indigo-700 px-3 py-1.5 border border-indigo-100 text-xs font-semibold whitespace-nowrap hover:bg-indigo-100 hover:border-indigo-200 transition-colors cursor-pointer"
-            aria-label={`Edit ${a.name}`}
-          >
-            <PencilIcon className="h-3.5 w-3.5" />
-            Edit
-          </button>
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 text-indigo-700 px-3 py-1.5 border border-indigo-100 text-xs font-semibold whitespace-nowrap">
+              <PencilIcon className="h-3.5 w-3.5" />
+              Edit
+            </span>
+           
         </td>
 
         <td className="py-4 px-4 whitespace-nowrap text-gray-700">
@@ -377,7 +330,7 @@ export default function AgentProfiles({
               {a.is_active ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 px-3 py-1.5 border border-emerald-100 text-xs font-semibold">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Active
+                  Status
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-700 px-3 py-1.5 border border-gray-200 text-xs font-semibold">
@@ -399,16 +352,7 @@ export default function AgentProfiles({
               )}
             </div>
 
-            <div className="mt-3">
-              <button
-                onClick={() => handleEditClick(a)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 text-indigo-700 px-3 py-1.5 border border-indigo-100 text-xs font-semibold hover:bg-indigo-100 hover:border-indigo-200 transition-colors cursor-pointer"
-                aria-label={`Edit ${a.name}`}
-              >
-                <PencilIcon className="h-3.5 w-3.5" />
-                Edit Agent
-              </button>
-            </div>
+            
 
             <div className="mt-3 flex items-center gap-2 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
               <CalendarClock className="h-3.5 w-3.5" />
@@ -421,153 +365,144 @@ export default function AgentProfiles({
   }
 
   return (
-    <>
-      <section className="mt-6 rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 via-white to-gray-50 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between p-5">
-          <div>
-            <h2 className="text-[18px] font-semibold text-gray-900">{title}</h2>
-            <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              aria-label="Refresh users"
-              title="Refresh"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Refresh
-            </button>
-
-            <button
-              type="button"
-              onClick={onAddNew}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow
-                       bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-              aria-label="Add new Agent"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add New Agent
-            </button>
-          </div>
+    <section className="mt-6 rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 via-white to-gray-50 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between p-5">
+        <div>
+          <h2 className="text-[18px] font-semibold text-gray-900">{title}</h2>
+          <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
         </div>
 
-        <div className="border-t border-gray-200" />
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            aria-label="Refresh users"
+            title="Refresh"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            Refresh
+          </button>
 
-        <div className="px-5 pt-4 pb-2">
-          <div className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-2 text-sm text-gray-700 shadow-sm">
-            Agent Profiles
-          </div>
+          <button
+            type="button"
+            onClick={onAddNew}
+            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow
+                     bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
+                     focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            aria-label="Add new Agent"
+          >
+            <UserPlus className="h-4 w-4" />
+            Add New Agent
+          </button>
         </div>
+      </div>
 
-        <div className="hidden md:block px-5 pb-5">
-          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
-              <table className="min-w-full text-left border-separate border-spacing-0">
-                <thead className="bg-white text-xs text-gray-600 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
-                  <tr className="[&>th]:py-3.5 [&>th]:px-4 [&>th]:whitespace-nowrap">
-                    <th className="w-36 font-semibold uppercase tracking-wide">
-                      Agent ID
-                    </th>
-                    <th className="min-w-[240px] font-semibold uppercase tracking-wide">
-                      Name
-                    </th>
-                    <th className="min-w-[280px] font-semibold uppercase tracking-wide">
-                      Email
-                    </th>
-                    <th className="min-w-[200px] font-semibold uppercase tracking-wide">
-                      Contact
-                    </th>
-                    <th className="w-36 font-semibold uppercase tracking-wide">
-                      Status
-                    </th>
-                    <th className="w-36 font-semibold uppercase tracking-wide">
-                      Verified
-                    </th>
-                    <th className="min-w-[120px] font-semibold uppercase tracking-wide">
-                      Action
-                    </th>
-                    <th className="min-w-[220px] font-semibold uppercase tracking-wide">
-                      Created At
-                    </th>
-                  </tr>
-                </thead>
+      <div className="border-t border-gray-200" />
 
-                <tbody className="text-sm">{tableBodyContent}</tbody>
-              </table>
+      <div className="px-5 pt-4 pb-2">
+        <div className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-2 text-sm text-gray-700 shadow-sm">
+          Agent Profiles
+        </div>
+      </div>
+
+      <div className="hidden md:block px-5 pb-5">
+        <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
+            <table className="min-w-full text-left border-separate border-spacing-0">
+              <thead className="bg-white text-xs text-gray-600 sticky top-0 z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
+                <tr className="[&>th]:py-3.5 [&>th]:px-4 [&>th]:whitespace-nowrap">
+                  <th className="w-36 font-semibold uppercase tracking-wide">
+                    Agent ID
+                  </th>
+                  <th className="min-w-[240px] font-semibold uppercase tracking-wide">
+                    Name
+                  </th>
+                  <th className="min-w-[280px] font-semibold uppercase tracking-wide">
+                    Email
+                  </th>
+                  <th className="min-w-[200px] font-semibold uppercase tracking-wide">
+                    Contact
+                  </th>
+                  <th className="w-36 font-semibold uppercase tracking-wide">
+                    Status
+                  </th>
+                  <th className="w-36 font-semibold uppercase tracking-wide">
+                    Verified
+                  </th>
+                  <th className="min-w-[220px] font-semibold uppercase tracking-wide">
+                    Action
+                  </th>
+                  <th className="min-w-[220px] font-semibold uppercase tracking-wide">
+                    Created At
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="text-sm">{tableBodyContent}</tbody>
+            </table>
+          </div>
+
+          <div className="border-t border-gray-200 bg-gradient-to-r from-white to-gray-50 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-gray-600">
+              {loading ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                  Loading…
+                </span>
+              ) : (
+                <span>
+                  Showing{" "}
+                  <span className="font-semibold text-gray-900">{list.length}</span>{" "}
+                  users{" "}
+                  <span className="text-gray-400">(limit {limit})</span>
+                </span>
+              )}
             </div>
 
-            <div className="border-t border-gray-200 bg-gradient-to-r from-white to-gray-50 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-gray-600">
-                {loading ? (
-                  <span className="inline-flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-                    Loading…
-                  </span>
-                ) : (
-                  <span>
-                    Showing{" "}
-                    <span className="font-semibold text-gray-900">{list.length}</span>{" "}
-                    users{" "}
-                    <span className="text-gray-400">(limit {limit})</span>
-                  </span>
-                )}
-              </div>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              <label className="text-sm text-gray-600">Rows:</label>
 
-              <div className="flex flex-wrap items-center gap-2 justify-end">
-                <label className="text-sm text-gray-600">Rows:</label>
+              <select
+                value={
+                  LIMIT_OPTIONS.includes(Number(limitInput))
+                    ? Number(limitInput)
+                    : ""
+                }
+                onChange={handleLimitSelect}
+                className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm
+                           focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
+              >
+                <option value="" disabled>Select</option>
+                {LIMIT_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
 
-                <select
-                  value={
-                    LIMIT_OPTIONS.includes(Number(limitInput))
-                      ? Number(limitInput)
-                      : ""
-                  }
-                  onChange={handleLimitSelect}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={limitInput}
+                  onChange={handleLimitInput}
+                  onKeyDown={handleLimitKeyDown}
+                  placeholder="Custom"
+                  className="w-28 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-9 text-sm text-gray-800 shadow-sm
                              focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
-                >
-                  <option value="" disabled>Select</option>
-                  {LIMIT_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={limitInput}
-                    onChange={handleLimitInput}
-                    onKeyDown={handleLimitKeyDown}
-                    placeholder="Custom"
-                    className="w-28 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-9 text-sm text-gray-800 shadow-sm
-                               focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
-                  />
-                  <span className="absolute inset-y-0 right-2 flex items-center text-[11px] text-gray-400">
-                    Enter
-                  </span>
-                </div>
+                />
+                <span className="absolute inset-y-0 right-2 flex items-center text-[11px] text-gray-400">
+                  Enter
+                </span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="md:hidden px-5 pb-5">{mobileContent}</div>
-      </section>
-
-      <EditAgentModal
-        open={editModalOpen}
-        agent={selectedAgent}
-        onClose={handleEditClose}
-        onSubmit={handleEditSubmit}
-      />
-    </>
+      <div className="md:hidden px-5 pb-5">{mobileContent}</div>
+    </section>
   );
 }
 
@@ -590,6 +525,7 @@ AgentProfiles.propTypes = {
   onEdit: PropTypes.func,
   onRefresh: PropTypes.func,
   loading: PropTypes.bool,
+
   limit: PropTypes.number,
   onLimitChange: PropTypes.func,
 };

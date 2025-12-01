@@ -65,7 +65,6 @@ function humanizeField(param) {
     agent_email: "Agent email",
     agent_name: "Agent name",
     agency: "Agency",
-    banker_id: "Agent ID",
   };
 
   if (map[param]) return map[param];
@@ -197,41 +196,27 @@ export async function fetchAllAgents() {
 }
 
 /**
- * ✅ NEW API for updating agent
- * PUT /api/backend/v1/banker_update
+ * ❗Still old endpoint unless your backend provides new update API.
  */
 export async function updateAgent(
   agentId,
   { agent_name, contact_number, status, password }
 ) {
   const payload = {
-    banker_id: agentId,
-    // phone_number: Number(contact_number) , 
-    is_active : status === "active" ? true : false 
+    agent_name: encryptText(agent_name || ""),
+    contact_number: encryptText(contact_number || ""),
+    status,
   };
 
-  // Add name if provided and not empty
-  if (agent_name && agent_name.trim()) {
-    payload.name = agent_name.trim();
-  }
-
-  // Add password if provided and not empty
-  if (password && password.trim()) {
+  if (typeof password === "string" && password.trim().length > 0) {
     payload.password = password.trim();
   }
 
-  // Note: The endpoint doesn't seem to support contact_number and status
-  // based on the provided curl example. If you need these fields,
-  // you might need to check with the backend team about the available fields.
-
-  const res = await fetchWithTimeout(
-    `${API_ROOT}/api/backend/v1/banker_update`,
-    {
-      method: "PUT",
-      headers: jsonHeaders(),
-      body: JSON.stringify(payload),
-    }
-  );
+  const res = await fetchWithTimeout(`${API_ROOT2}/agents/${agentId}`, {
+    method: "PUT",
+    headers: jsonHeaders(),
+    body: JSON.stringify(payload),
+  });
 
   if (!res.ok) {
     const msg = await readApiError(res);
