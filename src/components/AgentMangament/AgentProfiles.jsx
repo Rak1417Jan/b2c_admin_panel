@@ -1,4 +1,3 @@
-// src/components/AgentMangament/AgentProfiles.jsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import {
@@ -15,7 +14,6 @@ import {
 } from "lucide-react";
 import EditAgentModal from "./EditAgentModal";
 import { updateAgent } from "../../services/AgentService";
-// import { updateAgent } from "../../services/agentServices";
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
@@ -105,7 +103,6 @@ function SkeletonMobileCard() {
 }
 
 /* ---------- Limit options ---------- */
-// ✅ changed to start from 50
 const LIMIT_OPTIONS = [50, 100, 150];
 
 export default function AgentProfiles({
@@ -144,7 +141,7 @@ export default function AgentProfiles({
   };
 
   const handleLimitInput = (e) => {
-    const val = e.target.value.replace(/[^\d]/g, "");
+    const val = e.target.value.replaceAll(/[^\d]/g, "");
     setLimitInput(val);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -162,7 +159,6 @@ export default function AgentProfiles({
   };
 
   const handleEditClick = (agent) => {
-    // Transform agent data to match EditAgentModal expected format
     const modalAgentData = {
       agent_id: agent.id,
       agent_name: agent.name,
@@ -171,28 +167,28 @@ export default function AgentProfiles({
       status: agent.is_active ? "active" : "inactive",
       is_verified: agent.is_verified,
     };
-    
+
     setSelectedAgent(modalAgentData);
     setEditModalOpen(true);
   };
 
   const handleEditSubmit = async (formData) => {
     if (!selectedAgent) return;
-    
+
     try {
+      // formData may contain: status, agent_name, agent_email,
+      // contact_number, password (only changed fields)
       await updateAgent(selectedAgent.agent_id, formData);
-      
-      // Refresh the agents list to show updated data
+
       if (onRefresh) {
         onRefresh();
       }
-      
-      // Close modal after successful update
+
       setEditModalOpen(false);
       setSelectedAgent(null);
     } catch (error) {
       console.error("Failed to update agent:", error);
-      throw error; // Re-throw to let the modal handle the error
+      throw error; // let modal show error
     }
   };
 

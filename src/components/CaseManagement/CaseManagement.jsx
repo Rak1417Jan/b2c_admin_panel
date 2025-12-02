@@ -102,7 +102,8 @@ export default function CaseManagement() {
       const idToName = await resolveAgentNames(serverCases);
 
       const mapped = serverCases.map((c) => ({
-        id: c.case_id,
+        id: c.case_id, // keep case_id as internal id
+        applicationId: c.application_id, // ✅ used in table UI
         name: c.case_applicant_name,
         phone: c.case_applicant_contact,
         address: c.address,

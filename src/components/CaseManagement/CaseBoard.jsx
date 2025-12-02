@@ -142,8 +142,9 @@ function renderDesktopTbody({
 
     return (
       <tr key={r.id} className="hover:bg-gray-50/60">
+        {/* ✅ First column: Application ID from API */}
         <td className="px-5 py-4 text-gray-800 font-semibold whitespace-nowrap">
-          {r.id}
+          {r.applicationId || r.id}
         </td>
 
         <td className="px-5 py-4 whitespace-nowrap">
@@ -315,8 +316,11 @@ function renderMobileContent({
             className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">Case ID</div>
-              <div className="text-sm font-semibold text-gray-900">{r.id}</div>
+              {/* ✅ Mobile label: Application ID */}
+              <div className="text-sm text-gray-500">Application ID</div>
+              <div className="text-sm font-semibold text-gray-900">
+                {r.applicationId || r.id}
+              </div>
             </div>
 
             <div className="mt-3 flex items-start gap-3">
@@ -574,7 +578,7 @@ export default function CaseBoard({
               type="text"
               value={localSearch}
               onChange={handleSearchChange}
-              placeholder="Search Applicant Name or Contact…"
+              placeholder="Search Applicantion id,Name or Contact…"
               className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
             />
           </div>
@@ -627,8 +631,9 @@ export default function CaseBoard({
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 text-gray-600 sticky top-0 z-10">
                 <tr className="text-left">
+                  {/* ✅ Header text updated */}
                   <th className="px-5 py-3 font-medium whitespace-nowrap">
-                    Case ID
+                    Application ID
                   </th>
                   <th className="px-5 py-3 font-medium whitespace-nowrap">
                     Applicant
@@ -716,7 +721,7 @@ export default function CaseBoard({
                 onPageChange?.(Math.max(1, currentPage - 1))
               }
               disabled={!canPrev || loading}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg_white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Prev
             </button>
@@ -760,7 +765,11 @@ export default function CaseBoard({
 CaseBoard.propTypes = {
   rows: PropTypes.arrayOf(
     PropTypes.shape({
-      id: PropTypes.string.isRequired,
+      id: PropTypes.string.isRequired, // internal case_id
+      applicationId: PropTypes.oneOfType([
+        PropTypes.string,
+        PropTypes.number,
+      ]), // ✅ new for UI
       name: PropTypes.string.isRequired,
       phone: PropTypes.string.isRequired,
       address: PropTypes.string.isRequired,

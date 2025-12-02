@@ -28,7 +28,6 @@ import {
   Landmark,
   Banknote,
   TrendingUp,
-  TrendingDown,
   Wallet,
 } from "lucide-react";
 import { fetchCaseFiles, fetchFileBlob } from "../../services/CaseService";
@@ -209,7 +208,8 @@ function makeKey() {
 }
 
 // file extension helpers
-const isImageName = (name = "") => /\.(png|jpe?g|webp|gif)$/i.test(String(name));
+const isImageName = (name = "") =>
+  /\.(png|jpe?g|webp|gif)$/i.test(String(name));
 
 export default function CaseDetailsModal({ open, onClose, caseData }) {
   const [docLoading, setDocLoading] = useState(false);
@@ -293,7 +293,9 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
       for (const f of files) {
         if (cancelledRef.current) break;
         try {
-          const { blob, contentType, filename } = await fetchFileBlob(f.file_id);
+          const { blob, contentType, filename } = await fetchFileBlob(
+            f.file_id
+          );
           if (cancelledRef.current) break;
           const url = URL.createObjectURL(blob);
           blobUrlsRef.current.add(url);
@@ -418,13 +420,15 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
 
   if (!open || !caseData) return null;
 
-  const { demographic_details, business_details, financial_details } = caseData;
-
-  // Explicit statement instead of nested ternary
-  let aadhaarMatchText = "—";
-  if (typeof demographic_details?.aadhaar_photo_match === "boolean") {
-    aadhaarMatchText = demographic_details.aadhaar_photo_match ? "Yes" : "No";
-  }
+  // ✅ New structure from updated API
+  const {
+    applicantDetail,
+    residenceDetail,
+    coApplicantDetail,
+    businessDetail,
+    incomeExpenditure,
+    familyExpenses,
+  } = caseData;
 
   // Pretty helpers
   const prettyBytes = (n) => {
@@ -469,6 +473,14 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
     if (val === null || val === undefined || val === "") return "—";
     const num = Number(val);
     if (Number.isFinite(num)) return `₹${num.toLocaleString("en-IN")}`;
+    return String(val);
+  };
+
+  const boolLabel = (val) => {
+    if (val === null || val === undefined) return "—";
+    if (typeof val === "boolean") return val ? "Yes" : "No";
+    if (val === 1 || val === "1") return "Yes";
+    if (val === 0 || val === "0") return "No";
     return String(val);
   };
 
@@ -524,8 +536,7 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 rel="noreferrer"
                 title="Open in Google Maps"
               >
-                {f.geo_location.lat.toFixed(6)},{" "}
-                {f.geo_location.lng.toFixed(6)}
+                {f.geo_location.lat.toFixed(6)}, {f.geo_location.lng.toFixed(6)}
               </a>
             ) : (
               <span>
@@ -632,9 +643,9 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
               Case Details
             </h3>
             <p className="text-sm text-gray-600 truncate mt-1">
-              Case ID:{" "}
+              Application ID:{" "}
               <span className="font-bold text-gray-800">
-                {caseData.case_id}
+                {caseData.application_id}
               </span>
             </p>
           </div>
@@ -664,8 +675,16 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 value={caseData.case_applicant_contact}
                 icon={Phone}
               />
-              <InfoRow label="Status" value={caseData.status} icon={ShieldCheck} />
-              <InfoRow label="Case Type" value={caseData.case_type} icon={Tag} />
+              <InfoRow
+                label="Status"
+                value={caseData.status}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Case Type"
+                value={caseData.case_type}
+                icon={Tag}
+              />
               <InfoRow
                 label="Priority"
                 value={caseData.priority}
@@ -699,12 +718,16 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 icon={MapPinned}
               />
               {caseData.remarks && (
-                <InfoRow label="Remarks" value={caseData.remarks} icon={FileText} />
+                <InfoRow
+                  label="Remarks"
+                  value={caseData.remarks}
+                  icon={FileText}
+                />
               )}
             </div>
           </div>
 
-          {/* Uploaded Documents */}
+          {/* Uploaded Documents (UNCHANGED as requested) */}
           <Section title="Uploaded Documents" icon={FileText}>
             {docError ? (
               <div className="mb-4 text-sm text-red-600 font-medium">
@@ -714,214 +737,546 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
             {docsContent}
           </Section>
 
-          {/* Demographic */}
-          <Section title="Demographic Details" icon={Users}>
+          {/* Applicant + Residence Details (new mapping) */}
+          <Section title="Applicant & Residence Details" icon={Users}>
             <div className="space-y-1">
+              {/* Applicant core */}
+              <InfoRow
+                label="Applicant Name"
+                value={applicantDetail?.name}
+                icon={User}
+              />
+              <InfoRow
+                label=" User ID"
+                value={applicantDetail?.userId}
+                icon={User}
+              />
               <InfoRow
                 label="Email"
-                value={demographic_details?.contact_information?.email_id}
+                value={applicantDetail?.email}
                 icon={Mail}
               />
               <InfoRow
                 label="Mobile"
-                value={demographic_details?.contact_information?.mobile_number}
+                value={applicantDetail?.mobile}
                 icon={Phone}
               />
               <InfoRow
-                label="Aadhaar Photo Match"
-                value={aadhaarMatchText}
-                icon={ShieldCheck}
+                label="Alternate Mobile"
+                value={applicantDetail?.alternateMobile}
+                icon={Phone}
               />
               <InfoRow
-                label="Gender"
-                value={demographic_details?.personal_details?.gender}
-                icon={User}
-              />
-              <InfoRow
-                label="Education"
-                value={demographic_details?.personal_details?.education}
-                icon={GraduationCap}
-              />
-              <InfoRow
-                label="Family Members"
-                value={
-                  demographic_details?.personal_details?.number_of_family_members
-                }
-                icon={Users}
-              />
-              <InfoRow
-                label="Residence Type"
-                value={
-                  demographic_details?.address_details?.residence_address_type
-                }
-                icon={Home}
-              />
-              <InfoRow
-                label="City"
-                value={demographic_details?.address_details?.city}
-                icon={MapPin}
-              />
-              <InfoRow
-                label="State"
-                value={demographic_details?.address_details?.state}
-                icon={MapPinned}
-              />
-              <InfoRow
-                label="District"
-                value={demographic_details?.address_details?.district}
-                icon={MapPinned}
-              />
-              <InfoRow
-                label="Pincode"
-                value={demographic_details?.address_details?.pincode}
-                icon={Landmark}
-              />
-              <InfoRow
-                label="Residential Address"
-                value={demographic_details?.address_details?.residential_address}
-                icon={MapPinned}
-              />
-            </div>
-          </Section>
-
-          {/* Business */}
-          <Section title="Business Details" icon={Building2}>
-            <div className="space-y-1">
-              <InfoRow
-                label="Enterprise"
-                value={business_details?.enterprise_information?.enterprise_name}
-                icon={Building2}
-              />
-              <InfoRow
-                label="Organization Type"
-                value={
-                  business_details?.enterprise_information?.type_of_organization
-                }
-                icon={Briefcase}
-              />
-              <InfoRow
-                label="Location"
-                value={
-                  business_details?.business_location_details?.business_location
-                }
-                icon={MapPin}
-              />
-              <InfoRow
-                label="Address Type"
-                value={
-                  business_details?.business_location_details
-                    ?.business_address_type
-                }
-                icon={Home}
-              />
-              <InfoRow
-                label="Activity"
-                value={business_details?.business_activity?.business_activity}
-                icon={Briefcase}
-              />
-              <InfoRow
-                label="Activity Type"
-                value={business_details?.business_activity?.activity_type}
+                label="PAN Number"
+                value={applicantDetail?.panNumber}
                 icon={Tag}
               />
               <InfoRow
-                label="Employees"
-                value={business_details?.business_info?.employee_count}
-                icon={Users}
+                label="Voter ID"
+                value={applicantDetail?.voterId}
+                icon={Tag}
               />
               <InfoRow
-                label="Years Running"
-                value={business_details?.business_info?.years_of_running_business}
+                label="Aadhaar Reference Number"
+                value={applicantDetail?.aadharRefNumber}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="URN Number"
+                value={applicantDetail?.urnNumber}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Date of Birth"
+                value={applicantDetail?.dob}
                 icon={CalendarClock}
               />
               <InfoRow
-                label="Additional Business"
-                value={business_details?.business_info?.additional_business}
-                icon={Briefcase}
+                label="Gender ID"
+                value={applicantDetail?.genderId}
+                icon={User}
               />
               <InfoRow
-                label="Business Address"
-                value={business_details?.business_address?.address}
+                label="Marital Status ID"
+                value={applicantDetail?.maritalStatus}
+                icon={User}
+              />
+              <InfoRow
+                label="Qualification ID"
+                value={applicantDetail?.qualification}
+                icon={GraduationCap}
+              />
+              <InfoRow
+                label="Religion ID"
+                value={applicantDetail?.religion}
+                icon={Info}
+              />
+              <InfoRow
+                label="Illness"
+                value={applicantDetail?.illness}
+                icon={Users}
+              />
+              <InfoRow
+                label="Social Category ID"
+                value={applicantDetail?.socialCategoryId}
+                icon={Info}
+              />
+              <InfoRow
+                label="Woman Entrepreneur"
+                value={boolLabel(applicantDetail?.womanEntrepreneur)}
+                icon={Users}
+              />
+              <InfoRow
+                label="Divyang"
+                value={boolLabel(applicantDetail?.divyang)}
+                icon={Users}
+              />
+              <InfoRow
+                label="Serviceman"
+                value={boolLabel(applicantDetail?.serviceman)}
+                icon={Users}
+              />
+              <InfoRow
+                label="Number of Dependents"
+                value={applicantDetail?.numOfDependent}
+                icon={Users}
+              />
+              <InfoRow
+                label="Number of Earning Family Members"
+                value={applicantDetail?.numEarFamiMemb}
+                icon={Users}
+              />
+              <InfoRow
+                label="Father Name"
+                value={applicantDetail?.fatherName}
+                icon={User}
+              />
+              <InfoRow
+                label="Mother Name"
+                value={applicantDetail?.motherName}
+                icon={User}
+              />
+              <InfoRow
+                label="Spouse Name"
+                value={applicantDetail?.spouseName}
+                icon={User}
+              />
+              <InfoRow
+                label="Spouse DOB"
+                value={applicantDetail?.spouseDob}
+                icon={CalendarClock}
+              />
+              <InfoRow
+                label="Is from LSP"
+                value={boolLabel(applicantDetail?.isFromLsp)}
+                icon={Info}
+              />
+              <InfoRow
+                label="Primary ID"
+                value={applicantDetail?.primaryId}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Secondary ID"
+                value={applicantDetail?.secodaryId}
+                icon={Tag}
+              />
+
+              {/* Residence */}
+              <InfoRow
+                label="Residence Ownership Status ID"
+                value={residenceDetail?.ownershipStatus}
+                icon={Home}
+              />
+              <InfoRow
+                label="Residential Address 1"
+                value={residenceDetail?.address1}
                 icon={MapPinned}
               />
               <InfoRow
-                label="City"
-                value={business_details?.business_address?.city}
+                label="Residential Address 2"
+                value={residenceDetail?.address2}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Residential Address 3"
+                value={residenceDetail?.address3}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="City ID"
+                value={residenceDetail?.cityId}
                 icon={MapPin}
               />
               <InfoRow
-                label="District"
-                value={business_details?.business_address?.district}
+                label="District ID"
+                value={residenceDetail?.districtId}
                 icon={MapPinned}
               />
               <InfoRow
-                label="State"
-                value={business_details?.business_address?.state}
+                label="State ID"
+                value={residenceDetail?.stateId}
                 icon={MapPinned}
               />
               <InfoRow
                 label="Pincode"
-                value={business_details?.business_address?.pincode}
+                value={residenceDetail?.pincode}
                 icon={Landmark}
               />
               <InfoRow
+                label="Address Proof Type ID"
+                value={residenceDetail?.addressProofType}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Address Proof Doc ID"
+                value={residenceDetail?.addressProofId}
+                icon={FileText}
+              />
+            </div>
+          </Section>
+
+          {/* Co-Applicant Details */}
+          <Section title="Co-Applicant Details" icon={Users}>
+            <div className="space-y-1">
+              <InfoRow
+                label="Co-Applicant Name"
+                value={coApplicantDetail?.name}
+                icon={User}
+              />
+              <InfoRow
+                label="Email"
+                value={coApplicantDetail?.email}
+                icon={Mail}
+              />
+              <InfoRow
+                label="Mobile"
+                value={coApplicantDetail?.mobile}
+                icon={Phone}
+              />
+              <InfoRow
+                label="PAN Number"
+                value={coApplicantDetail?.panNumber}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Voter ID"
+                value={coApplicantDetail?.voterId}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Date of Birth"
+                value={coApplicantDetail?.dob}
+                icon={CalendarClock}
+              />
+              <InfoRow
+                label="Gender ID"
+                value={coApplicantDetail?.gender}
+                icon={User}
+              />
+              <InfoRow
+                label="Marital Status ID"
+                value={coApplicantDetail?.maritalStatus}
+                icon={User}
+              />
+              <InfoRow
+                label="Relationship with Applicant ID"
+                value={coApplicantDetail?.relationshipWithApplicantId}
+                icon={Users}
+              />
+              <InfoRow
+                label="Occupation ID"
+                value={coApplicantDetail?.occupationId}
+                icon={Briefcase}
+              />
+              <InfoRow
+                label="Primary ID"
+                value={coApplicantDetail?.primaryId}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Secondary ID"
+                value={coApplicantDetail?.secondaryId}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Same as Residential"
+                value={boolLabel(coApplicantDetail?.sameAsResidential)}
+                icon={Home}
+              />
+              <InfoRow
+                label="Ownership Status ID"
+                value={coApplicantDetail?.ownership}
+                icon={Home}
+              />
+              <InfoRow
+                label="Address 1"
+                value={coApplicantDetail?.address1}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Address 2"
+                value={coApplicantDetail?.address2}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Address 3"
+                value={coApplicantDetail?.address3}
+                icon={MapPinned}
+              />
+              <InfoRow
                 label="Landmark"
-                value={business_details?.business_address?.landmark}
+                value={coApplicantDetail?.landmark}
+                icon={Landmark}
+              />
+              <InfoRow
+                label="City ID"
+                value={coApplicantDetail?.cityId}
+                icon={MapPin}
+              />
+              <InfoRow
+                label="District ID"
+                value={coApplicantDetail?.districtId}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="State ID"
+                value={coApplicantDetail?.stateId}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Pincode"
+                value={coApplicantDetail?.pincode}
                 icon={Landmark}
               />
             </div>
           </Section>
 
-          {/* Financial */}
-          <Section title="Financial Details" icon={Wallet}>
+          {/* Business Details */}
+          <Section title="Business Details" icon={Building2}>
             <div className="space-y-1">
               <InfoRow
-                label="Monthly Income (Business)"
-                value={formatINR(
-                  financial_details?.business_financial_information
-                    ?.monthly_income_from_business
-                )}
-                icon={TrendingUp}
+                label="Business Name"
+                value={businessDetail?.businessName}
+                icon={Building2}
               />
               <InfoRow
-                label="Monthly Expense (Business)"
-                value={formatINR(
-                  financial_details?.business_financial_information
-                    ?.monthly_expense_of_business
-                )}
-                icon={TrendingDown}
+                label="Business Type ID"
+                value={businessDetail?.businessType}
+                icon={Briefcase}
               />
               <InfoRow
-                label="Current Loans/EMIs"
-                value={formatINR(
-                  financial_details?.loans_and_emis?.current_loans_emis
-                )}
-                icon={Banknote}
+                label="Nature of Activity ID"
+                value={businessDetail?.natureActivity}
+                icon={Briefcase}
               />
               <InfoRow
-                label="Monthly Family Income"
-                value={formatINR(
-                  financial_details?.family_financial_information
-                    ?.monthly_family_income
-                )}
-                icon={BadgeIndianRupee}
+                label="Area Type ID"
+                value={businessDetail?.areaType}
+                icon={MapPin}
               />
               <InfoRow
-                label="Working Members"
-                value={
-                  financial_details?.family_financial_information
-                    ?.number_of_working_members
-                }
-                icon={Users}
+                label="Organisation Type ID"
+                value={businessDetail?.organizationType}
+                icon={Briefcase}
               />
               <InfoRow
-                label="Monthly Family Expense"
-                value={formatINR(
-                  financial_details?.family_financial_information
-                    ?.monthly_family_expense
-                )}
-                icon={Wallet}
+                label="Business PAN Number"
+                value={businessDetail?.panNumber}
+                icon={Tag}
               />
+              <InfoRow
+                label="Business Location ID"
+                value={businessDetail?.businessLocation}
+                icon={MapPin}
+              />
+              <InfoRow
+                label="Work Experience (Years)"
+                value={businessDetail?.workExperienceInYears}
+                icon={CalendarClock}
+              />
+              <InfoRow
+                label="Business Ownership Status ID"
+                value={businessDetail?.ownershipStatus}
+                icon={Home}
+              />
+              <InfoRow
+                label="Business Address 1"
+                value={businessDetail?.address1}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Business Address 2"
+                value={businessDetail?.address2}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Landmark"
+                value={businessDetail?.landmark}
+                icon={Landmark}
+              />
+              <InfoRow
+                label="City ID"
+                value={businessDetail?.cityId}
+                icon={MapPin}
+              />
+              <InfoRow
+                label="District ID"
+                value={businessDetail?.districtId}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="State ID"
+                value={businessDetail?.stateId}
+                icon={MapPinned}
+              />
+              <InfoRow
+                label="Pincode"
+                value={businessDetail?.pincode}
+                icon={Landmark}
+              />
+              <InfoRow
+                label="Business Proof Type ID"
+                value={businessDetail?.businessProofType}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Business Proof Doc ID"
+                value={businessDetail?.businessProofDoc}
+                icon={FileText}
+              />
+            </div>
+          </Section>
+
+          {/* Financial Details */}
+          <Section title="Financial Details" icon={Wallet}>
+            <div className="space-y-4">
+              {/* Income / Expenditure */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 mb-2">
+                  Income &amp; Expenditure
+                </p>
+                <div className="space-y-1">
+                  <InfoRow
+                    label="Monthly Income"
+                    value={formatINR(incomeExpenditure?.monthlyIncome)}
+                    icon={TrendingUp}
+                  />
+                  <InfoRow
+                    label="Frequency of Income ID"
+                    value={incomeExpenditure?.freqOfIncome}
+                    icon={Info}
+                  />
+                  <InfoRow
+                    label="Income Days"
+                    value={incomeExpenditure?.incomeDays}
+                    icon={CalendarClock}
+                  />
+                  <InfoRow
+                    label="Average Daily Income"
+                    value={formatINR(
+                      incomeExpenditure?.avgIncomeDailyBasis
+                    )}
+                    icon={TrendingUp}
+                  />
+                  <InfoRow
+                    label="Yearly Income"
+                    value={formatINR(incomeExpenditure?.yearlyIncome)}
+                    icon={TrendingUp}
+                  />
+                  <InfoRow
+                    label="Income from Other Source"
+                    value={formatINR(
+                      incomeExpenditure?.incomeFromOtherSource
+                    )}
+                    icon={TrendingUp}
+                  />
+                  <InfoRow
+                    label="Total Income"
+                    value={formatINR(incomeExpenditure?.totalIncome)}
+                    icon={BadgeIndianRupee}
+                  />
+                  <InfoRow
+                    label="Ration Card ID"
+                    value={incomeExpenditure?.rationCard}
+                    icon={Info}
+                  />
+                </div>
+              </div>
+
+              {/* Family Expenses */}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 mb-2">
+                  Family Expenses
+                </p>
+                <div className="space-y-1">
+                  <InfoRow
+                    label="Household Expenses"
+                    value={formatINR(familyExpenses?.householdExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Utility Expenses"
+                    value={formatINR(familyExpenses?.utilityExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Education Expenses"
+                    value={formatINR(familyExpenses?.eduExp)}
+                    icon={GraduationCap}
+                  />
+                  <InfoRow
+                    label="Medical Expenses"
+                    value={formatINR(familyExpenses?.mediExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Critical Medical Expenses"
+                    value={formatINR(familyExpenses?.mediExpCritical)}
+                    icon={AlertTriangle}
+                  />
+                  <InfoRow
+                    label="Food Expenses"
+                    value={formatINR(familyExpenses?.foodExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Grocery Expenses"
+                    value={formatINR(familyExpenses?.grocExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Cooking Expenses"
+                    value={formatINR(familyExpenses?.cookingExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Other Expenses"
+                    value={formatINR(familyExpenses?.otherExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Clothing Expenses"
+                    value={formatINR(familyExpenses?.clothing)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Transport Expenses"
+                    value={formatINR(familyExpenses?.transpExp)}
+                    icon={Wallet}
+                  />
+                  <InfoRow
+                    label="Other Business Expenses"
+                    value={formatINR(familyExpenses?.otherBusiExp)}
+                    icon={Banknote}
+                  />
+                  <InfoRow
+                    label="Total Expenses"
+                    value={formatINR(familyExpenses?.totalExp)}
+                    icon={Banknote}
+                  />
+                </div>
+              </div>
             </div>
           </Section>
         </div>

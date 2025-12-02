@@ -1,5 +1,4 @@
 // src/services/AgentService.js
-import { encryptText } from "../utils/cryptoService";
 
 // ✅ NEW fixed base URL (no env for now)
 const API_ROOT = "https://sidbi-user-india-uat-cpv.b2cdev.com";
@@ -72,8 +71,8 @@ function humanizeField(param) {
 
   // fallback: "first_name" -> "First name"
   return String(param || "Field")
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .replaceAll(/_/g, " ")
+    .replaceAll(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**
@@ -105,7 +104,6 @@ async function readApiError(res) {
 
     // If message exists but no errors array
     if (data?.message) return String(data.message);
-
   } catch {
     // ignore json parse errors and fallback to text
   }
@@ -202,27 +200,37 @@ export async function fetchAllAgents() {
  */
 export async function updateAgent(
   agentId,
-  { agent_name, contact_number, status, password }
+  { agent_name, agent_email, contact_number, status, password }
 ) {
   const payload = {
     banker_id: agentId,
-    // phone_number: Number(contact_number) , 
-    is_active : status === "active" ? true : false 
+    is_active: status === "active",
   };
 
+  const trimmedName = (agent_name || "").trim();
+  const trimmedEmail = (agent_email || "").trim();
+  const trimmedContact = (contact_number || "").trim();
+  const trimmedPassword = (password || "").trim();
+
   // Add name if provided and not empty
-  if (agent_name && agent_name.trim()) {
-    payload.name = agent_name.trim();
+  if (trimmedName) {
+    payload.name = trimmedName;
+  }
+
+  // Add email if provided and not empty
+  if (trimmedEmail) {
+    payload.email_address = trimmedEmail;
+  }
+
+  // Add phone if provided and not empty
+  if (trimmedContact) {
+    payload.phone_number = trimmedContact;
   }
 
   // Add password if provided and not empty
-  if (password && password.trim()) {
-    payload.password = password.trim();
+  if (trimmedPassword) {
+    payload.password = trimmedPassword;
   }
-
-  // Note: The endpoint doesn't seem to support contact_number and status
-  // based on the provided curl example. If you need these fields,
-  // you might need to check with the backend team about the available fields.
 
   const res = await fetchWithTimeout(
     `${API_ROOT}/api/backend/v1/banker_update`,

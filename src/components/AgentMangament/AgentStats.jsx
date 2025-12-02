@@ -12,7 +12,6 @@ import {
 
 import { addAgentToHFAgency } from "../../services/Addagent"; // ✅ HF (2nd API)
 import AddAgentModal from "./AddAgentModal.jsx";
-import EditAgentModal from "./EditAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
 
@@ -113,13 +112,18 @@ export default function AgentStats({
   }) => {
     if (saving) return null;
 
+    // ✅ normalize email once here for all APIs as well (extra safety)
+    const normalizedEmail = (agent_email || "").trim().toLowerCase();
+    const normalizedName = (agent_name || "").trim();
+    const normalizedPhone = (contact_number || "").trim();
+
     try {
       setSaving(true);
 
       const resp1 = await createAgent({
-        agent_name: (agent_name || "").trim(),
-        agent_email: (agent_email || "").trim(),
-        contact_number: (contact_number || "").trim(),
+        agent_name: normalizedName,
+        agent_email: normalizedEmail,
+        contact_number: normalizedPhone,
         password,
         is_active: Boolean(is_active),
       });
@@ -132,9 +136,9 @@ export default function AgentStats({
 
       try {
         await addAgentToHFAgency({
-          agent_name,
-          agent_email,
-          contact_number,
+          agent_name: normalizedName,
+          agent_email: normalizedEmail,
+          contact_number: normalizedPhone,
           password,
           agency,
         });
@@ -275,6 +279,3 @@ AgentStats.propTypes = {
   title: PropTypes.string,
   subtitle: PropTypes.string,
 };
-
-
-

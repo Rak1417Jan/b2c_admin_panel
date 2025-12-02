@@ -183,7 +183,8 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
 
       const resp = await onSubmit?.({
         agent_name: form.agent_name.trim(),
-        agent_email: form.agent_email.trim(),
+        // ✅ always send lowercase email to APIs
+        agent_email: form.agent_email.trim().toLowerCase(),
         contact_number: form.contact_number.trim(),
         password: form.password,
         agency: form.agency.trim(), // ✅ for 2nd API
@@ -488,8 +489,8 @@ export default function AddAgentModal({ open, onClose, onSubmit }) {
           >
             {saving ? (
               <>
-                <span className="h-4 w-4 rounded-full border-2 border-white/70 border-t-transparent animate-spin" />
-                {" "}Creating...
+                <span className="h-4 w-4 rounded-full border-2 border-white/70 border-t-transparent animate-spin" />{" "}
+                Creating...
               </>
             ) : (
               "Create agent"

@@ -1,4 +1,3 @@
-// src/components/AgentManagement/EditAgentModal.jsx
 import { useEffect, useState, useId } from "react";
 import PropTypes from "prop-types";
 import {
@@ -30,6 +29,74 @@ function isValidPassword(value) {
   if (!trimmed) return true; // optional
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
   return passwordRegex.test(trimmed);
+}
+
+/* ---------- Extracted helpers to reduce complexity ---------- */
+
+function computeValidationErrors(form) {
+  const validationErrors = {
+    agent_name: "",
+    contact_number: "",
+    password: "",
+  };
+
+  if (!isValidAgentName(form.agent_name)) {
+    validationErrors.agent_name = "Name can only contain letters and spaces.";
+  }
+
+  if (!isValidContactNumber(form.contact_number)) {
+    validationErrors.contact_number = "Enter a valid 10-digit mobile number.";
+  }
+
+  if (!isValidPassword(form.password)) {
+    validationErrors.password =
+      "Password must be 8+ chars with 1 uppercase, 1 number & 1 special character.";
+  }
+
+  return validationErrors;
+}
+
+function buildUpdatePayload(form, agent) {
+  const trimmedName = form.agent_name.trim();
+  const trimmedEmail = form.agent_email.trim().toLowerCase();
+  const trimmedContact = form.contact_number.trim();
+  const trimmedPassword = form.password.trim();
+
+  const originalName = String(agent?.agent_name || "").trim();
+  const originalEmail = String(agent?.agent_email || "").trim().toLowerCase();
+  const originalContact = String(agent?.contact_number || "").trim();
+  const originalStatus =
+    agent?.status === "inactive" ? "inactive" : "active";
+
+  const hasChanges =
+    trimmedName !== originalName ||
+    trimmedEmail !== originalEmail ||
+    trimmedContact !== originalContact ||
+    form.status !== originalStatus ||
+    trimmedPassword !== "";
+
+  const updatePayload = {
+    status: form.status,
+  };
+
+  if (trimmedName && trimmedName !== originalName) {
+    updatePayload.agent_name = trimmedName;
+  }
+
+  if (trimmedEmail && trimmedEmail !== originalEmail) {
+    // ✅ always send lowercase email
+    updatePayload.agent_email = trimmedEmail;
+  }
+
+  if (trimmedContact && trimmedContact !== originalContact) {
+    updatePayload.contact_number = trimmedContact;
+  }
+
+  if (trimmedPassword) {
+    updatePayload.password = trimmedPassword;
+  }
+
+  return { hasChanges, updatePayload };
 }
 
 /* -------------------------- Component -------------------------- */
@@ -93,41 +160,17 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
   const onSave = async () => {
     if (!agent?.agent_id || saving) return;
 
-    const newErrors = { agent_name: "", contact_number: "", password: "" };
+    // ✅ Step 1: validate form (reduced complexity)
+    const validationErrors = computeValidationErrors(form);
+    const hasError = Object.values(validationErrors).some(Boolean);
 
-    if (!isValidAgentName(form.agent_name)) {
-      newErrors.agent_name = "Name can only contain letters and spaces.";
-    }
-
-    if (!isValidContactNumber(form.contact_number)) {
-      newErrors.contact_number = "Enter a valid 10-digit mobile number.";
-    }
-
-    if (!isValidPassword(form.password)) {
-      newErrors.password =
-        "Password must be 8+ chars with 1 uppercase, 1 number & 1 special character.";
-    }
-
-    const hasError = Object.values(newErrors).some(Boolean);
     if (hasError) {
-      setErrors(newErrors);
+      setErrors(validationErrors);
       return;
     }
 
-    const trimmedName = form.agent_name.trim();
-    const trimmedContact = form.contact_number.trim();
-    const trimmedPassword = form.password.trim();
-
-    const originalName = String(agent?.agent_name || "").trim();
-    const originalContact = String(agent?.contact_number || "").trim();
-    const originalStatus =
-      agent?.status === "inactive" ? "inactive" : "active";
-
-    const hasChanges =
-      trimmedName !== originalName ||
-      trimmedContact !== originalContact ||
-      form.status !== originalStatus ||
-      trimmedPassword !== "";
+    // ✅ Step 2: compute changes + payload (email normalized)
+    const { hasChanges, updatePayload } = buildUpdatePayload(form, agent);
 
     if (!hasChanges) {
       setSuccessMsg("No changes to save.");
@@ -139,12 +182,7 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
       setSubmitError("");
       setSuccessMsg("");
 
-      await onSubmit?.({
-        agent_name: trimmedName,
-        contact_number: trimmedContact,
-        status: form.status,
-        password: trimmedPassword, // empty string ok; service will ignore if empty
-      });
+      await onSubmit?.(updatePayload);
 
       setSuccessMsg("Agent details updated successfully.");
       setForm((prev) => ({ ...prev, password: "" }));
@@ -234,7 +272,7 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
             )}
           </div>
 
-          {/* Agent email (readonly from new API) */}
+          {/* Agent email (editable, will be lowercased in payload) */}
           <div>
             <label htmlFor={emailId} className="text-sm text-gray-700">
               Agent email
@@ -243,8 +281,9 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
               id={emailId}
               name="agent_email"
               value={form.agent_email}
-              disabled
-              className="mt-1 w-full rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-600 cursor-not-allowed"
+              onChange={handleChange}
+              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/30 bg-white transition"
+              placeholder="Enter agent email"
             />
           </div>
 
@@ -263,7 +302,7 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
                   ? "border-red-400 bg-red-50 focus:ring-red-500/40"
                   : "border-gray-300 focus:ring-blue-600/30"
               }`}
-              placeholder="Enter 10-digit mobile number"
+              placeholder="Enter contact number"
               aria-invalid={!!errors.contact_number}
             />
             {errors.contact_number && (
@@ -367,12 +406,12 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
             {saving ? (
               <>
                 <span className="h-4 w-4 rounded-full border-2 border-white/70 border-t-transparent animate-spin" />
-                Saving...
+                <span>Saving...</span>
               </>
             ) : (
               <>
                 <BadgeCheck className="h-4 w-4" />
-                Save changes
+                <span>Save changes</span>
               </>
             )}
           </button>
