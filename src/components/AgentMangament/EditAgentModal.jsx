@@ -1,3 +1,4 @@
+// src/components/AgentManagement/EditAgentModal.jsx
 import { useEffect, useState, useId } from "react";
 import PropTypes from "prop-types";
 import {
@@ -83,8 +84,9 @@ function buildUpdatePayload(form, agent) {
     updatePayload.agent_name = trimmedName;
   }
 
+  // ✅ Even though email is disabled, keep this logic harmless
   if (trimmedEmail && trimmedEmail !== originalEmail) {
-    // ✅ always send lowercase email
+    // always send lowercase email
     updatePayload.agent_email = trimmedEmail;
   }
 
@@ -160,7 +162,7 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
   const onSave = async () => {
     if (!agent?.agent_id || saving) return;
 
-    // ✅ Step 1: validate form (reduced complexity)
+    // Step 1: validate form
     const validationErrors = computeValidationErrors(form);
     const hasError = Object.values(validationErrors).some(Boolean);
 
@@ -169,7 +171,7 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
       return;
     }
 
-    // ✅ Step 2: compute changes + payload (email normalized)
+    // Step 2: compute changes + payload
     const { hasChanges, updatePayload } = buildUpdatePayload(form, agent);
 
     if (!hasChanges) {
@@ -272,7 +274,7 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
             )}
           </div>
 
-          {/* Agent email (editable, will be lowercased in payload) */}
+          {/* Agent email (DISABLED - read-only) */}
           <div>
             <label htmlFor={emailId} className="text-sm text-gray-700">
               Agent email
@@ -282,8 +284,10 @@ export default function EditAgentModal({ open, agent, onClose, onSubmit }) {
               name="agent_email"
               value={form.agent_email}
               onChange={handleChange}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/30 bg-white transition"
-              placeholder="Enter agent email"
+              disabled
+              className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-500 bg-gray-50 cursor-not-allowed outline-none"
+              placeholder="Agent email"
+              title="Email cannot be changed"
             />
           </div>
 

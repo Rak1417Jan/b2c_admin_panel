@@ -578,7 +578,7 @@ export default function CaseBoard({
               type="text"
               value={localSearch}
               onChange={handleSearchChange}
-              placeholder="Search Applicantion id,Name or Contact…"
+              placeholder="Search Applicant Name or Contact…"
               className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500"
             />
           </div>

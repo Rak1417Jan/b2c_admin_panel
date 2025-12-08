@@ -1,3 +1,4 @@
+// src/components/AgentManagement/AgentProfiles.jsx
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import {
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import EditAgentModal from "./EditAgentModal";
 import { updateAgent } from "../../services/AgentService";
+import { syncEditedAgentToHFAndCPV } from "../../services/Addagent";
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
@@ -180,6 +182,18 @@ export default function AgentProfiles({
       // contact_number, password (only changed fields)
       await updateAgent(selectedAgent.agent_id, formData);
 
+      // ✅ Fire-and-forget HF + CPV sync after B2C updateAgent success
+      // Uses the email from the selected row (non-editable) for HF search.
+      const hfSyncPayload = {
+        agent_email: selectedAgent.agent_email,
+        agent_name: formData.agent_name, // only if changed
+        contact_number: formData.contact_number, // only if changed
+        status: formData.status, // always present from EditAgentModal
+        password: formData.password, // only if changed
+      };
+      // 🚀 Do NOT await; this runs in background
+      syncEditedAgentToHFAndCPV(hfSyncPayload);
+
       if (onRefresh) {
         onRefresh();
       }
@@ -188,7 +202,8 @@ export default function AgentProfiles({
       setSelectedAgent(null);
     } catch (error) {
       console.error("Failed to update agent:", error);
-      throw error; // let modal show error
+      // allow modal to show error (EditAgentModal catches thrown error)
+      throw error;
     }
   };
 
@@ -429,7 +444,7 @@ export default function AgentProfiles({
             <button
               type="button"
               onClick={onRefresh}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none_focus:ring-2 focus:ring-blue-500/30"
               aria-label="Refresh users"
               title="Refresh"
             >
