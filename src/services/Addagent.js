@@ -6,9 +6,7 @@ const HF_API_ROOT = import.meta.env.VITE_API_BASE;
 
 // ✅ CPV API root (second backend)
 const CPV_API_ROOT =
-  import.meta.env.VITE_CPV_API_BASE ||
-  "https://rakshitjan-cps-b2c.hf.space/api";
-
+  import.meta.env.VITE_CPV_API_BASE;
 /**
  * ✅ Hits HF API AFTER createAgent success.
  * POST /api/agents
@@ -219,7 +217,7 @@ export async function syncEditedAgentToHFAndCPV({
     // If only status is changed, payload will only have { status: ... }
 
     // 🔥 Fire-and-forget: do NOT await this fetch
-    fetch(`${CPV_API_ROOT}/agents/${hfAgentId}`, {
+    fetch(`${HF_API_ROOT}/agents/${hfAgentId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

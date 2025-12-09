@@ -40,6 +40,8 @@ import { getGenderName } from "../Mapper/gender";
 import { getQualificationName } from "../Mapper/qualification";
 import { getOwnershipName } from "../Mapper/ownership";
 import { getBusinessLocationName } from "../Mapper/businesslocation";
+import { getbusinesstypeName } from "../Mapper/businesstype";
+import { getorganizationname } from "../Mapper/oragnization";
 
 /* ---------- Extracted child components ---------- */
 
@@ -842,13 +844,8 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 icon={Building2}
               />
               <InfoRow
-                label="Business Type ID"
-                value={businessDetail?.businessType}
-                icon={Briefcase}
-              />
-              <InfoRow
-                label="Nature of Activity ID"
-                value={businessDetail?.natureActivity}
+                label="Business Type"
+                value={getbusinesstypeName(businessDetail?.businessType)}
                 icon={Briefcase}
               />
               <InfoRow
@@ -859,8 +856,8 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 icon={Home}
               />
               <InfoRow
-                label="Organisation Type ID"
-                value={businessDetail?.organizationType}
+                label="Organisation Type"
+                value={getorganizationname(businessDetail?.organizationType)}
                 icon={Briefcase}
               />
               <InfoRow

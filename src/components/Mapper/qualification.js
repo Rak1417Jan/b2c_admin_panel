@@ -3,7 +3,9 @@
 export const qualificationList = [
   { id: 1, qualification_name: "illiterate" },
   { id: 2, qualification_name: "Upto 10" },
-  // ...add remaining qualifications here
+  { id: 3, qualification_name: "11 to 12" },
+  { id: 4, qualification_name: "Graduate and Above" },
+  
 ];
 
 const qualificationMap = qualificationList.reduce((acc, item) => {
