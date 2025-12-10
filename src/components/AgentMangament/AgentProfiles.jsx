@@ -13,6 +13,8 @@ import {
   CalendarClock,
   PencilIcon,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import EditAgentModal from "./EditAgentModal";
 import { updateAgent } from "../../services/AgentService";
@@ -116,46 +118,39 @@ function SkeletonMobileCard() {
 }
 
 /* ---------- Limit options ---------- */
-const LIMIT_OPTIONS = [50, 100, 150];
+const LIMIT_OPTIONS = [10, 25, 50];
+
+const SEARCH_PLACEHOLDER = {
+  name: "Search by name",
+  email: "Search by email",
+  phone: "Search by phone number",
+};
 
 export default function AgentProfiles({
   title = "Agent Management",
   subtitle = "Manage and monitor all agents",
   agents = [],
   onAddNew,
+  onEdit, // kept for compatibility (unused)
   onRefresh,
   loading = false,
   limit = 10,
   onLimitChange,
-  // ✅ new search props
-  onSearchChange,
-  searchName = "",
-  searchEmail = "",
+  page = 1,
+  totalItems = 0,
+  onPageChange,
+  searchField = "name",
+  searchTerm = "",
+  onSearchFieldChange,
+  onSearchTermChange,
 }) {
   const list = useMemo(() => agents, [agents]);
   const isEmpty = !loading && list.length === 0;
 
   const [limitInput, setLimitInput] = useState(String(limit));
-
-  // ✅ local state for controlled search inputs
-  const [nameSearch, setNameSearch] = useState(searchName);
-  const [emailSearch, setEmailSearch] = useState(searchEmail);
-
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
-
-  // separate debouncers
-  const limitDebounceRef = useRef(null);
-  const searchDebounceRef = useRef(null);
-
-  // keep inputs synced when parent search state changes (e.g. reset from parent)
-  useEffect(() => {
-    setNameSearch(searchName);
-  }, [searchName]);
-
-  useEffect(() => {
-    setEmailSearch(searchEmail);
-  }, [searchEmail]);
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     setLimitInput(String(limit));
@@ -177,8 +172,8 @@ export default function AgentProfiles({
     const val = e.target.value.replaceAll(/[^\d]/g, "");
     setLimitInput(val);
 
-    if (limitDebounceRef.current) clearTimeout(limitDebounceRef.current);
-    limitDebounceRef.current = setTimeout(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
       commitLimit(val);
     }, 500);
   };
@@ -186,44 +181,9 @@ export default function AgentProfiles({
   const handleLimitKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (limitDebounceRef.current) clearTimeout(limitDebounceRef.current);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       commitLimit(limitInput);
     }
-  };
-
-  // ✅ SEARCH HANDLERS
-  const triggerSearch = (nextName, nextEmail) => {
-    if (!onSearchChange) return;
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-
-    searchDebounceRef.current = setTimeout(() => {
-      onSearchChange({
-        name: nextName,
-        email: nextEmail,
-      });
-    }, 400);
-  };
-
-  const handleNameSearchChange = (e) => {
-    const val = e.target.value;
-    setNameSearch(val);
-    triggerSearch(val, emailSearch);
-  };
-
-  const handleEmailSearchChange = (e) => {
-    const val = e.target.value;
-    setEmailSearch(val);
-    triggerSearch(nameSearch, val);
-  };
-
-  const clearNameSearch = () => {
-    setNameSearch("");
-    triggerSearch("", emailSearch);
-  };
-
-  const clearEmailSearch = () => {
-    setEmailSearch("");
-    triggerSearch(nameSearch, "");
   };
 
   const handleEditClick = (agent) => {
@@ -497,6 +457,41 @@ export default function AgentProfiles({
     );
   }
 
+  const totalPages = Math.max(
+    1,
+    Math.ceil((totalItems || list.length) / (limit || 10))
+  );
+
+  const handlePrevPage = () => {
+    if (page <= 1) return;
+    onPageChange?.(page - 1);
+  };
+
+  const handleNextPage = () => {
+    if (page >= totalPages) return;
+    onPageChange?.(page + 1);
+  };
+
+  const handleSearchFieldSelect = (e) => {
+    const field = e.target.value;
+    onSearchFieldChange?.(field);
+  };
+
+  const handleSearchInputChange = (e) => {
+    onSearchTermChange?.(e.target.value);
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      // Already debounced in parent on change, but allow immediate submit if needed
+      onSearchTermChange?.(e.target.value);
+    }
+  };
+
+  const handleClearSearch = () => {
+    onSearchTermChange?.("");
+  };
+
   return (
     <>
       <section className="mt-6 rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 via-white to-gray-50 shadow-sm">
@@ -506,67 +501,12 @@ export default function AgentProfiles({
             <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
           </div>
 
-          {/* ✅ top-right controls: search + actions, fully responsive */}
-          <div className="flex flex-col gap-3 md:items-end w-full md:w-auto">
-            {/* Search row */}
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-              {/* Search by Name */}
-              <div className="relative flex-1 min-w-[180px]">
-                <span className="absolute inset-y-0 left-3 flex items-center">
-                  <Search className="h-4 w-4 text-gray-400" />
-                </span>
-                <input
-                  type="text"
-                  value={nameSearch}
-                  onChange={handleNameSearchChange}
-                  placeholder="Search by name"
-                  className="w-full rounded-full border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-sm text-gray-800 shadow-sm
-                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
-                />
-                {nameSearch && (
-                  <button
-                    type="button"
-                    onClick={clearNameSearch}
-                    className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-400 hover:text-gray-600"
-                    aria-label="Clear name search"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              {/* Search by Email */}
-              <div className="relative flex-1 min-w-[200px]">
-                <span className="absolute inset-y-0 left-3 flex items-center">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                </span>
-                <input
-                  type="text"
-                  value={emailSearch}
-                  onChange={handleEmailSearchChange}
-                  placeholder="Search by email"
-                  className="w-full rounded-full border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-sm text-gray-800 shadow-sm
-                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
-                />
-                {emailSearch && (
-                  <button
-                    type="button"
-                    onClick={clearEmailSearch}
-                    className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-400 hover:text-gray-600"
-                    aria-label="Clear email search"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Action buttons row */}
-            <div className="flex flex-wrap gap-2 justify-end">
+          <div className="flex flex-col gap-3 w-full md:w-auto md:items-end">
+            <div className="flex flex-wrap gap-2 justify-start md:justify-end">
               <button
                 type="button"
                 onClick={onRefresh}
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none_focus:ring-2 focus:ring-blue-500/30"
                 aria-label="Refresh users"
                 title="Refresh"
               >
@@ -578,17 +518,58 @@ export default function AgentProfiles({
                 type="button"
                 onClick={onAddNew}
                 className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow
-                           bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
-                           focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                       bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
+                       focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                 aria-label="Add new Agent"
               >
                 <UserPlus className="h-4 w-4" />
                 Add New Agent
               </button>
             </div>
+
+            {/* 🔍 Search controls */}
+            <div className="flex flex-col gap-2 w-full max-w-xl md:flex-row md:items-center">
+              <div className="relative w-full md:w-40">
+                <select
+                  value={searchField}
+                  onChange={handleSearchFieldSelect}
+                  className="w-full rounded-full border border-gray-200 bg-white px-3 py-2.5 pr-8 text-sm text-gray-800 shadow-sm
+                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none appearance-none"
+                >
+                  <option value="name">By name</option>
+                  <option value="email">By email</option>
+                  <option value="phone">By phone</option>
+                </select>
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400 text-xs">
+                  ▼
+                </span>
+              </div>
+
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={handleSearchInputChange}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={SEARCH_PLACEHOLDER[searchField] || "Search"}
+                  className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-9 pr-9 text-sm text-gray-800 shadow-sm
+                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs px-2 py-1 rounded-full hover:bg-gray-100"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-          
+
         <div className="border-t border-gray-200" />
 
         <div className="px-5 pt-4 pb-2">
@@ -596,8 +577,8 @@ export default function AgentProfiles({
             Agent Profiles
           </div>
         </div>
-        
 
+        {/* Desktop table */}
         <div className="hidden md:block px-5 pb-5">
           <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="max-h-[520px] overflow-y-auto overflow-x-auto">
@@ -635,7 +616,8 @@ export default function AgentProfiles({
               </table>
             </div>
 
-            <div className="border-t border-gray-200 bg-gradient-to-r from-white to-gray-50 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            {/* Footer: rows + pagination */}
+            <div className="border-t border-gray-200 bg-gradient-to-r from-white to-gray-50 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-gray-600">
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
@@ -648,57 +630,139 @@ export default function AgentProfiles({
                     <span className="font-semibold text-gray-900">
                       {list.length}
                     </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-gray-900">
+                      {totalItems || list.length}
+                    </span>{" "}
                     users{" "}
                     <span className="text-gray-400">(limit {limit})</span>
                   </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 justify-end">
-                <label className="text-sm text-gray-600">Rows:</label>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+                <div className="flex flex-wrap items-center gap-2 justify-end">
+                  <label className="text-sm text-gray-600">Rows:</label>
 
-                <select
-                  value={
-                    LIMIT_OPTIONS.includes(Number(limitInput))
-                      ? Number(limitInput)
-                      : ""
-                  }
-                  onChange={handleLimitSelect}
-                  className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm
-                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
-                >
-                  <option value="" disabled>
-                    Select
-                  </option>
-                  {LIMIT_OPTIONS.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
-
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={limitInput}
-                    onChange={handleLimitInput}
-                    onKeyDown={handleLimitKeyDown}
-                    placeholder="Custom"
-                    className="w-28 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-9 text-sm text-gray-800 shadow-sm
+                  <select
+                    value={
+                      LIMIT_OPTIONS.includes(Number(limitInput))
+                        ? Number(limitInput)
+                        : ""
+                    }
+                    onChange={handleLimitSelect}
+                    className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm
                                focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
-                  />
-                  <span className="absolute inset-y-0 right-2 flex items-center text-[11px] text-gray-400">
-                    Enter
+                  >
+                    <option value="" disabled>
+                      Select
+                    </option>
+                    {LIMIT_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={limitInput}
+                      onChange={handleLimitInput}
+                      onKeyDown={handleLimitKeyDown}
+                      placeholder="Custom"
+                      className="w-28 rounded-full border border-gray-200 bg-white py-1.5 pl-3 pr-9 text-sm text-gray-800 shadow-sm
+                                 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
+                    />
+                    <span className="absolute inset-y-0 right-2 flex items-center text-[11px] text-gray-400">
+                      Enter
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pagination controls */}
+                <div className="flex items-center justify-end gap-2 text-sm text-gray-700">
+                  <button
+                    type="button"
+                    onClick={handlePrevPage}
+                    disabled={page <= 1 || loading}
+                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-sm
+                               disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Prev
+                  </button>
+                  <span className="text-xs sm:text-sm text-gray-600">
+                    Page{" "}
+                    <span className="font-semibold text-gray-900">{page}</span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-gray-900">
+                      {totalPages}
+                    </span>
                   </span>
+                  <button
+                    type="button"
+                    onClick={handleNextPage}
+                    disabled={page >= totalPages || loading}
+                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-sm
+                               disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Mobile list */}
-        <div className="md:hidden px-5 pb-5">{mobileContent}</div>
+        {/* Mobile cards */}
+        <div className="md:hidden px-5 pb-5">
+          {mobileContent}
+
+          {/* Mobile pagination summary */}
+          {!loading && (
+            <div className="mt-4 flex flex-col gap-2 items-center text-sm text-gray-700">
+              <div>
+                Showing{" "}
+                <span className="font-semibold text-gray-900">
+                  {list.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-gray-900">
+                  {totalItems || list.length}
+                </span>{" "}
+                users
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePrevPage}
+                  disabled={page <= 1 || loading}
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-sm
+                             disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Prev
+                </button>
+                <span className="text-xs text-gray-600">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextPage}
+                  disabled={page >= totalPages || loading}
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 shadow-sm
+                             disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       <EditAgentModal
@@ -727,11 +791,16 @@ AgentProfiles.propTypes = {
     })
   ),
   onAddNew: PropTypes.func,
+  onEdit: PropTypes.func,
   onRefresh: PropTypes.func,
   loading: PropTypes.bool,
   limit: PropTypes.number,
   onLimitChange: PropTypes.func,
-  onSearchChange: PropTypes.func,
-  searchName: PropTypes.string,
-  searchEmail: PropTypes.string,
+  page: PropTypes.number,
+  totalItems: PropTypes.number,
+  onPageChange: PropTypes.func,
+  searchField: PropTypes.oneOf(["name", "email", "phone"]),
+  searchTerm: PropTypes.string,
+  onSearchFieldChange: PropTypes.func,
+  onSearchTermChange: PropTypes.func,
 };

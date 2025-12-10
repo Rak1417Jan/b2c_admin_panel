@@ -11,7 +11,6 @@ import {
 } from "../../services/AgentService";
 
 import { addAgentToHFAgency } from "../../services/Addagent"; // ✅ HF (2nd API)
-import { searchAgents } from "../../services/AgentSearchService"; // ✅ NEW search service
 import AddAgentModal from "./AddAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -42,29 +41,58 @@ export default function AgentStats({
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // ✅ default limit changed 10 -> 50
-  const [limit, setLimit] = useState(50);
+  // ✅ list pagination + search
+  const [limit, setLimit] = useState(10); // page size
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const [searchField, setSearchField] = useState("name"); // "name" | "email" | "phone"
+  const [searchTerm, setSearchTerm] = useState("");
+  const searchDebounceRef = useRef(null);
+
   const requestIdRef = useRef(0);
 
-  // ✅ search state
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchName, setSearchName] = useState("");
-  const [searchEmail, setSearchEmail] = useState("");
-
-  const load = async (limitOverride) => {
+  const load = async ({
+    limitOverride,
+    pageOverride,
+    searchFieldOverride,
+    searchTermOverride,
+  } = {}) => {
     const effectiveLimit =
-      Number(limitOverride) > 0 ? Number(limitOverride) : limit;
+      Number(limitOverride) > 0 ? Number(limitOverride) : limit || 10;
+    const effectivePage = Number(pageOverride) > 0 ? Number(pageOverride) : page;
 
     const currentId = ++requestIdRef.current;
     setLoading(true);
     setErr("");
-    setIsSearching(false); // pure list mode
+
+    const effectiveSearchField =
+      searchTermOverride && searchTermOverride.trim()
+        ? searchFieldOverride || searchField
+        : undefined;
+    const effectiveSearchTerm =
+      searchTermOverride && searchTermOverride.trim()
+        ? searchTermOverride.trim()
+        : undefined;
 
     try {
-      const { agents: list } = await fetchAgents({ limit: effectiveLimit });
+      const { agents: list, pagination } = await fetchAgents({
+        limit: effectiveLimit,
+        page: effectivePage,
+        searchField: effectiveSearchField,
+        searchTerm: effectiveSearchTerm,
+      });
+
       if (currentId !== requestIdRef.current) return;
+
       setAgents(list);
       setLimit(effectiveLimit);
+      setPage(pagination.current_page || effectivePage);
+      setTotalItems(
+        typeof pagination.total_items === "number"
+          ? pagination.total_items
+          : list.length
+      );
     } catch (error) {
       if (currentId !== requestIdRef.current) return;
       const msg =
@@ -87,8 +115,8 @@ export default function AgentStats({
   };
 
   useEffect(() => {
-    // ✅ initial load 50 instead of 10
-    load(50);
+    // ✅ initial load: page 1, limit 10
+    load({ limitOverride: 10, pageOverride: 1 });
     loadAllAgentsMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -154,7 +182,7 @@ export default function AgentStats({
       }
 
       setAdding(false);
-      await load(limit);
+      await load({ pageOverride: 1, searchTermOverride: searchTerm });
       await loadAllAgentsMetrics();
 
       return resp1;
@@ -170,76 +198,70 @@ export default function AgentStats({
     }
   };
 
-  // ✅ central search handler – used by both search boxes & refresh when in search mode
-  const handleSearchChange = async (
-    { name, email },
-    customLimit // optional when changing limit
-  ) => {
-    const trimmedName = (name || "").trim();
-    const trimmedEmail = (email || "").trim();
-    const effectiveLimit =
-      Number(customLimit) > 0 ? Number(customLimit) : limit;
-
-    setSearchName(trimmedName);
-    setSearchEmail(trimmedEmail);
-
-    // If both empty => go back to normal list
-    if (!trimmedName && !trimmedEmail) {
-      setIsSearching(false);
-      await load(effectiveLimit);
-      return;
-    }
-
-    const currentId = ++requestIdRef.current;
-    setLoading(true);
-    setErr("");
-    setIsSearching(true);
-
-    try {
-      const { agents: list } = await searchAgents({
-        name: trimmedName,
-        email: trimmedEmail,
-        limit: effectiveLimit,
-      });
-
-      if (currentId !== requestIdRef.current) return;
-
-      setAgents(list);
-      setLimit(effectiveLimit);
-    } catch (error) {
-      if (currentId !== requestIdRef.current) return;
-      const msg =
-        error instanceof Error && error.message
-          ? `Failed to search agents: ${error.message}`
-          : "Failed to search agents.";
-      setErr(msg);
-    } finally {
-      if (currentId === requestIdRef.current) setLoading(false);
-    }
-  };
-
   const handleRefresh = async () => {
-    if (isSearching && (searchName || searchEmail)) {
-      // re-run search with current terms
-      await handleSearchChange({ name: searchName, email: searchEmail });
-    } else {
-      await load(limit);
-      await loadAllAgentsMetrics();
-    }
+    await load({
+      pageOverride: page,
+      searchFieldOverride: searchField,
+      searchTermOverride: searchTerm,
+    });
+    await loadAllAgentsMetrics();
   };
 
   const handleLimitChange = async (nextLimit) => {
     const val = Number(nextLimit);
     if (!val || val <= 0 || val === limit) return;
+    setPage(1);
+    await load({
+      limitOverride: val,
+      pageOverride: 1,
+      searchFieldOverride: searchField,
+      searchTermOverride: searchTerm,
+    });
+  };
 
-    if (isSearching && (searchName || searchEmail)) {
-      await handleSearchChange(
-        { name: searchName, email: searchEmail },
-        val
-      );
-    } else {
-      await load(val);
+  const handlePageChange = async (nextPage) => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil((totalItems || agents.length) / (limit || 10))
+    );
+    if (nextPage < 1 || nextPage > totalPages) return;
+    setPage(nextPage);
+    await load({
+      pageOverride: nextPage,
+      searchFieldOverride: searchField,
+      searchTermOverride: searchTerm,
+    });
+  };
+
+  const handleSearchFieldChange = async (field) => {
+    setSearchField(field);
+    // If there is already some text, re-run search with new field
+    if (searchTerm.trim()) {
+      setPage(1);
+      await load({
+        pageOverride: 1,
+        searchFieldOverride: field,
+        searchTermOverride: searchTerm,
+      });
     }
+  };
+
+  const handleSearchTermChange = (value) => {
+    setSearchTerm(value);
+    setPage(1);
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      const trimmed = value.trim();
+      load({
+        pageOverride: 1,
+        searchFieldOverride: trimmed ? searchField : undefined,
+        searchTermOverride: trimmed || undefined,
+      });
+    }, 450);
   };
 
   return (
@@ -304,7 +326,7 @@ export default function AgentStats({
       {loading && !err && (
         <div className="mt-4 inline-flex items-center gap-2 text-sm text-gray-500">
           <div className="h-4 w-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-          <span>{isSearching ? "Searching users…" : "Loading users…"}</span>
+          <span>Loading users…</span>
         </div>
       )}
 
@@ -326,10 +348,13 @@ export default function AgentStats({
         }))}
         limit={limit}
         onLimitChange={handleLimitChange}
-        // ✅ pass search state + handler down
-        onSearchChange={handleSearchChange}
-        searchName={searchName}
-        searchEmail={searchEmail}
+        page={page}
+        totalItems={totalItems}
+        onPageChange={handlePageChange}
+        searchField={searchField}
+        searchTerm={searchTerm}
+        onSearchFieldChange={handleSearchFieldChange}
+        onSearchTermChange={handleSearchTermChange}
       />
 
       <AddAgentModal

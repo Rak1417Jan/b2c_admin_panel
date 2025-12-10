@@ -1,11 +1,14 @@
 // src/services/AgentService.js
 
-// ✅ NEW fixed base URL (no env for now)
+// ✅ Existing base URLs
 const API_ROOT = "https://sidbi-user-india-uat-cpv.b2cdev.com";
 const API_ROOT2 = "https://rakshitjan-cps-b2c.hf.space/api";
 
-// ✅ Default row limit for users list (changed 10 -> 50)
-const DEFAULT_LIMIT = 50;
+// ✅ NEW: Orchestrator base URL for agent-list
+const ORCHESTRATOR_ROOT = "https://sidbi-orchestrator-india-uat-cpv.b2cdev.com";
+
+// ✅ Default row limit for users list (now 10 per page for agent-list pagination)
+const DEFAULT_LIMIT = 10;
 
 // Hardcoded role id as per your backend contract
 const DEFAULT_ROLE_ID = "691c48ae1fc6f9213d2fb158";
@@ -117,10 +120,22 @@ async function readApiError(res) {
 }
 
 /**
- * Normalize NEW `/users` API item into a stable "agent-like" shape
+ * Normalize orchestrator `agent-list` item into a stable "agent-like" shape
  * that your UI / modals can safely use.
+ *
+ * Source shape (from orchestrator):
+ * {
+ *   "id": "6937e677f417c181ab72bf04",
+ *   "name": "Garv",
+ *   "email_address": "garv123@gmail.com",
+ *   "phone_number": 8130871483,
+ *   "is_active": true,
+ *   "is_verified": true,
+ *   "created_at": "2025-12-09T09:05:59.000Z",
+ *   ...
+ * }
  */
-function normalizeUserToAgent(u) {
+function normalizeOrchestratorAgent(u) {
   const isActiveBool = Boolean(u?.is_active);
   const isVerifiedBool = Boolean(u?.is_verified);
 
@@ -138,21 +153,70 @@ function normalizeUserToAgent(u) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/*  ✅ NEW orchestrator-based list + search + pagination               */
+/*      GET /v2/tasks?slug=agent-list&...                              */
+/* ------------------------------------------------------------------ */
+
 /**
- * ✅ NEW API
- * GET /api/backend/v1/users?limit=50
+ * Fetch agents via orchestrator `agent-list` task.
+ *
+ * Supports:
+ * - pagination (limit + skip/page)
+ * - search via partial_match on name / email_address / phone_number
+ *
+ * Search behaviour:
+ * - searchField: "name" | "email" | "phone"
+ * - searchTerm: text typed by user
+ *
+ * When searchTerm is empty -> no partial_match params => returns full list page.
  */
 export async function fetchAgents({
-  page = 1, // kept for compatibility (ignored)
+  page,
+  skip,
   limit = DEFAULT_LIMIT,
-  search = "", // kept for compatibility (ignored)
+  searchField,
+  searchTerm,
 } = {}) {
   const safeLimit = Number(limit) > 0 ? Number(limit) : DEFAULT_LIMIT;
 
-  const params = new URLSearchParams();
-  params.set("limit", String(safeLimit));
+  let safeSkip = 0;
+  if (typeof skip === "number" && skip >= 0) {
+    safeSkip = skip;
+  } else if (typeof page === "number" && page > 1) {
+    safeSkip = (page - 1) * safeLimit;
+  }
 
-  const url = `${API_ROOT}/api/backend/v1/users?${params.toString()}`;
+  const params = new URLSearchParams();
+  params.set("slug", "agent-list");
+  params.set("response_type", "object");
+  params.set("internal", "true");
+  params.set("limit", String(safeLimit));
+  params.set("skip", String(safeSkip));
+
+  const trimmedSearch = (searchTerm || "").trim();
+  if (trimmedSearch && searchField) {
+    let partial = "";
+    let key = "";
+
+    if (searchField === "name") {
+      partial = "name";
+      key = "name";
+    } else if (searchField === "email") {
+      partial = "email_address";
+      key = "email_address";
+    } else if (searchField === "phone") {
+      partial = "phone_number";
+      key = "phone_number";
+    }
+
+    if (partial && key) {
+      params.set("partial_match", partial);
+      params.set(key, trimmedSearch);
+    }
+  }
+
+  const url = `${ORCHESTRATOR_ROOT}/v2/tasks?${params.toString()}`;
 
   const res = await fetchWithTimeout(url, {
     method: "GET",
@@ -166,19 +230,25 @@ export async function fetchAgents({
 
   const data = await res.json();
 
-  const raw = Array.isArray(data?.data) ? data.data : [];
+  const result =
+    data?.data?.response_data?.get_banker?.data?.data?.result || [];
+  const total =
+    data?.data?.response_data?.get_banker?.data?.data?.total || result.length;
 
-  // ✅ Reverse order so last item shows first
-  const agents = raw.map(normalizeUserToAgent).reverse();
+  const agents = result.map(normalizeOrchestratorAgent);
 
-  // Backend doesn't send pagination -> safe fallback
+  const currentPage = Math.floor(safeSkip / safeLimit) + 1;
+  const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+
   const pagination = {
-    current_page: 1,
-    total_pages: 1,
-    total_items: agents.length,
+    current_page: currentPage,
+    total_pages: totalPages,
+    total_items: total,
     items_per_page: safeLimit,
-    has_next_page: false,
-    has_prev_page: false,
+    has_next_page: safeSkip + safeLimit < total,
+    has_prev_page: safeSkip > 0,
+    skip: safeSkip,
+    limit: safeLimit,
   };
 
   return { agents, pagination };
@@ -186,11 +256,11 @@ export async function fetchAgents({
 
 /**
  * ✅ For metrics:
- * reuse `/users` with big limit.
+ * reuse orchestrator `agent-list` with big limit and skip=0
  */
 export async function fetchAllAgents() {
   const BIG_LIMIT = 5000;
-  const { agents } = await fetchAgents({ limit: BIG_LIMIT });
+  const { agents } = await fetchAgents({ limit: BIG_LIMIT, skip: 0 });
   return agents;
 }
 
