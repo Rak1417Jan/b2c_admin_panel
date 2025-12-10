@@ -38,7 +38,7 @@ export default function CaseEditModal({ open, onClose, caseData, agents = [], on
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Edit Case / Assign Agent</h3>
             <p className="text-sm text-gray-500">
-              Case ID: <span className="font-medium text-gray-700">{caseData.application_id}</span>
+              Application ID: <span className="font-medium text-gray-700">{caseData.application_id}</span>
             </p>
           </div>
           <button
