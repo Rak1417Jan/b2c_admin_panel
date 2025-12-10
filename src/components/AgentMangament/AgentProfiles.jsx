@@ -12,6 +12,7 @@ import {
   RefreshCcw,
   CalendarClock,
   PencilIcon,
+  Search,
 } from "lucide-react";
 import EditAgentModal from "./EditAgentModal";
 import { updateAgent } from "../../services/AgentService";
@@ -53,8 +54,12 @@ SkeletonPill.propTypes = { width: PropTypes.string };
 function SkeletonTableRow() {
   return (
     <tr className="border-b border-gray-100 last:border-0">
-      <td className="py-4 px-4"><SkeletonBar width="w-28" /></td>
-      <td className="py-4 px-4"><SkeletonBar width="w-40" /></td>
+      <td className="py-4 px-4">
+        <SkeletonBar width="w-28" />
+      </td>
+      <td className="py-4 px-4">
+        <SkeletonBar width="w-40" />
+      </td>
       <td className="py-4 px-4">
         <div className="flex items-center gap-2">
           <div className="h-3.5 w-3.5 rounded-full bg-gray-200 animate-pulse" />
@@ -67,9 +72,15 @@ function SkeletonTableRow() {
           <SkeletonBar width="w-28" />
         </div>
       </td>
-      <td className="py-4 px-4"><SkeletonPill width="w-14" /></td>
-      <td className="py-4 px-4"><SkeletonPill width="w-16" /></td>
-      <td className="py-4 px-4"><SkeletonBar width="w-36" /></td>
+      <td className="py-4 px-4">
+        <SkeletonPill width="w-14" />
+      </td>
+      <td className="py-4 px-4">
+        <SkeletonPill width="w-16" />
+      </td>
+      <td className="py-4 px-4">
+        <SkeletonBar width="w-36" />
+      </td>
     </tr>
   );
 }
@@ -112,19 +123,39 @@ export default function AgentProfiles({
   subtitle = "Manage and monitor all agents",
   agents = [],
   onAddNew,
-  onEdit,
   onRefresh,
   loading = false,
   limit = 10,
   onLimitChange,
+  // ✅ new search props
+  onSearchChange,
+  searchName = "",
+  searchEmail = "",
 }) {
   const list = useMemo(() => agents, [agents]);
   const isEmpty = !loading && list.length === 0;
 
   const [limitInput, setLimitInput] = useState(String(limit));
+
+  // ✅ local state for controlled search inputs
+  const [nameSearch, setNameSearch] = useState(searchName);
+  const [emailSearch, setEmailSearch] = useState(searchEmail);
+
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const debounceRef = useRef(null);
+
+  // separate debouncers
+  const limitDebounceRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+
+  // keep inputs synced when parent search state changes (e.g. reset from parent)
+  useEffect(() => {
+    setNameSearch(searchName);
+  }, [searchName]);
+
+  useEffect(() => {
+    setEmailSearch(searchEmail);
+  }, [searchEmail]);
 
   useEffect(() => {
     setLimitInput(String(limit));
@@ -146,8 +177,8 @@ export default function AgentProfiles({
     const val = e.target.value.replaceAll(/[^\d]/g, "");
     setLimitInput(val);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+    if (limitDebounceRef.current) clearTimeout(limitDebounceRef.current);
+    limitDebounceRef.current = setTimeout(() => {
       commitLimit(val);
     }, 500);
   };
@@ -155,9 +186,44 @@ export default function AgentProfiles({
   const handleLimitKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (limitDebounceRef.current) clearTimeout(limitDebounceRef.current);
       commitLimit(limitInput);
     }
+  };
+
+  // ✅ SEARCH HANDLERS
+  const triggerSearch = (nextName, nextEmail) => {
+    if (!onSearchChange) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    searchDebounceRef.current = setTimeout(() => {
+      onSearchChange({
+        name: nextName,
+        email: nextEmail,
+      });
+    }, 400);
+  };
+
+  const handleNameSearchChange = (e) => {
+    const val = e.target.value;
+    setNameSearch(val);
+    triggerSearch(val, emailSearch);
+  };
+
+  const handleEmailSearchChange = (e) => {
+    const val = e.target.value;
+    setEmailSearch(val);
+    triggerSearch(nameSearch, val);
+  };
+
+  const clearNameSearch = () => {
+    setNameSearch("");
+    triggerSearch("", emailSearch);
+  };
+
+  const clearEmailSearch = () => {
+    setEmailSearch("");
+    triggerSearch(nameSearch, "");
   };
 
   const handleEditClick = (agent) => {
@@ -434,38 +500,95 @@ export default function AgentProfiles({
   return (
     <>
       <section className="mt-6 rounded-2xl border border-gray-200 bg-gradient-to-b from-gray-50 via-white to-gray-50 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between p-5">
           <div>
             <h2 className="text-[18px] font-semibold text-gray-900">{title}</h2>
             <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onRefresh}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none_focus:ring-2 focus:ring-blue-500/30"
-              aria-label="Refresh users"
-              title="Refresh"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Refresh
-            </button>
+          {/* ✅ top-right controls: search + actions, fully responsive */}
+          <div className="flex flex-col gap-3 md:items-end w-full md:w-auto">
+            {/* Search row */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              {/* Search by Name */}
+              <div className="relative flex-1 min-w-[180px]">
+                <span className="absolute inset-y-0 left-3 flex items-center">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </span>
+                <input
+                  type="text"
+                  value={nameSearch}
+                  onChange={handleNameSearchChange}
+                  placeholder="Search by name"
+                  className="w-full rounded-full border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-sm text-gray-800 shadow-sm
+                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
+                />
+                {nameSearch && (
+                  <button
+                    type="button"
+                    onClick={clearNameSearch}
+                    className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-400 hover:text-gray-600"
+                    aria-label="Clear name search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
 
-            <button
-              type="button"
-              onClick={onAddNew}
-              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow
-                       bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-              aria-label="Add new Agent"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add New Agent
-            </button>
+              {/* Search by Email */}
+              <div className="relative flex-1 min-w-[200px]">
+                <span className="absolute inset-y-0 left-3 flex items-center">
+                  <Mail className="h-4 w-4 text-gray-400" />
+                </span>
+                <input
+                  type="text"
+                  value={emailSearch}
+                  onChange={handleEmailSearchChange}
+                  placeholder="Search by email"
+                  className="w-full rounded-full border border-gray-200 bg-white py-1.5 pl-9 pr-8 text-sm text-gray-800 shadow-sm
+                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
+                />
+                {emailSearch && (
+                  <button
+                    type="button"
+                    onClick={clearEmailSearch}
+                    className="absolute inset-y-0 right-3 flex items-center text-xs text-gray-400 hover:text-gray-600"
+                    aria-label="Clear email search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons row */}
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={onRefresh}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                aria-label="Refresh users"
+                title="Refresh"
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Refresh
+              </button>
+
+              <button
+                type="button"
+                onClick={onAddNew}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white shadow
+                           bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 transition
+                           focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                aria-label="Add new Agent"
+              >
+                <UserPlus className="h-4 w-4" />
+                Add New Agent
+              </button>
+            </div>
           </div>
         </div>
-
+          
         <div className="border-t border-gray-200" />
 
         <div className="px-5 pt-4 pb-2">
@@ -473,6 +596,7 @@ export default function AgentProfiles({
             Agent Profiles
           </div>
         </div>
+        
 
         <div className="hidden md:block px-5 pb-5">
           <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -521,7 +645,9 @@ export default function AgentProfiles({
                 ) : (
                   <span>
                     Showing{" "}
-                    <span className="font-semibold text-gray-900">{list.length}</span>{" "}
+                    <span className="font-semibold text-gray-900">
+                      {list.length}
+                    </span>{" "}
                     users{" "}
                     <span className="text-gray-400">(limit {limit})</span>
                   </span>
@@ -541,7 +667,9 @@ export default function AgentProfiles({
                   className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 shadow-sm
                              focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
                 >
-                  <option value="" disabled>Select</option>
+                  <option value="" disabled>
+                    Select
+                  </option>
                   {LIMIT_OPTIONS.map((n) => (
                     <option key={n} value={n}>
                       {n}
@@ -569,6 +697,7 @@ export default function AgentProfiles({
           </div>
         </div>
 
+        {/* Mobile list */}
         <div className="md:hidden px-5 pb-5">{mobileContent}</div>
       </section>
 
@@ -598,9 +727,11 @@ AgentProfiles.propTypes = {
     })
   ),
   onAddNew: PropTypes.func,
-  onEdit: PropTypes.func,
   onRefresh: PropTypes.func,
   loading: PropTypes.bool,
   limit: PropTypes.number,
   onLimitChange: PropTypes.func,
+  onSearchChange: PropTypes.func,
+  searchName: PropTypes.string,
+  searchEmail: PropTypes.string,
 };

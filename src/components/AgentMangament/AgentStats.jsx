@@ -11,6 +11,7 @@ import {
 } from "../../services/AgentService";
 
 import { addAgentToHFAgency } from "../../services/Addagent"; // ✅ HF (2nd API)
+import { searchAgents } from "../../services/AgentSearchService"; // ✅ NEW search service
 import AddAgentModal from "./AddAgentModal.jsx";
 
 const fmt = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -45,6 +46,11 @@ export default function AgentStats({
   const [limit, setLimit] = useState(50);
   const requestIdRef = useRef(0);
 
+  // ✅ search state
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchName, setSearchName] = useState("");
+  const [searchEmail, setSearchEmail] = useState("");
+
   const load = async (limitOverride) => {
     const effectiveLimit =
       Number(limitOverride) > 0 ? Number(limitOverride) : limit;
@@ -52,6 +58,7 @@ export default function AgentStats({
     const currentId = ++requestIdRef.current;
     setLoading(true);
     setErr("");
+    setIsSearching(false); // pure list mode
 
     try {
       const { agents: list } = await fetchAgents({ limit: effectiveLimit });
@@ -163,15 +170,76 @@ export default function AgentStats({
     }
   };
 
+  // ✅ central search handler – used by both search boxes & refresh when in search mode
+  const handleSearchChange = async (
+    { name, email },
+    customLimit // optional when changing limit
+  ) => {
+    const trimmedName = (name || "").trim();
+    const trimmedEmail = (email || "").trim();
+    const effectiveLimit =
+      Number(customLimit) > 0 ? Number(customLimit) : limit;
+
+    setSearchName(trimmedName);
+    setSearchEmail(trimmedEmail);
+
+    // If both empty => go back to normal list
+    if (!trimmedName && !trimmedEmail) {
+      setIsSearching(false);
+      await load(effectiveLimit);
+      return;
+    }
+
+    const currentId = ++requestIdRef.current;
+    setLoading(true);
+    setErr("");
+    setIsSearching(true);
+
+    try {
+      const { agents: list } = await searchAgents({
+        name: trimmedName,
+        email: trimmedEmail,
+        limit: effectiveLimit,
+      });
+
+      if (currentId !== requestIdRef.current) return;
+
+      setAgents(list);
+      setLimit(effectiveLimit);
+    } catch (error) {
+      if (currentId !== requestIdRef.current) return;
+      const msg =
+        error instanceof Error && error.message
+          ? `Failed to search agents: ${error.message}`
+          : "Failed to search agents.";
+      setErr(msg);
+    } finally {
+      if (currentId === requestIdRef.current) setLoading(false);
+    }
+  };
+
   const handleRefresh = async () => {
-    await load(limit);
-    await loadAllAgentsMetrics();
+    if (isSearching && (searchName || searchEmail)) {
+      // re-run search with current terms
+      await handleSearchChange({ name: searchName, email: searchEmail });
+    } else {
+      await load(limit);
+      await loadAllAgentsMetrics();
+    }
   };
 
   const handleLimitChange = async (nextLimit) => {
     const val = Number(nextLimit);
     if (!val || val <= 0 || val === limit) return;
-    await load(val);
+
+    if (isSearching && (searchName || searchEmail)) {
+      await handleSearchChange(
+        { name: searchName, email: searchEmail },
+        val
+      );
+    } else {
+      await load(val);
+    }
   };
 
   return (
@@ -236,7 +304,7 @@ export default function AgentStats({
       {loading && !err && (
         <div className="mt-4 inline-flex items-center gap-2 text-sm text-gray-500">
           <div className="h-4 w-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
-          <span>Loading users…</span>
+          <span>{isSearching ? "Searching users…" : "Loading users…"}</span>
         </div>
       )}
 
@@ -258,6 +326,10 @@ export default function AgentStats({
         }))}
         limit={limit}
         onLimitChange={handleLimitChange}
+        // ✅ pass search state + handler down
+        onSearchChange={handleSearchChange}
+        searchName={searchName}
+        searchEmail={searchEmail}
       />
 
       <AddAgentModal
