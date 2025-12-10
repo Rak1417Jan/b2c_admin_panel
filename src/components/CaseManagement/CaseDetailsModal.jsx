@@ -922,11 +922,11 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                     value={formatINR(incomeExpenditure?.monthlyIncome)}
                     icon={TrendingUp}
                   />
-                  <InfoRow
+                  {/* <InfoRow
                     label="Yearly Income"
                     value={formatINR(incomeExpenditure?.yearlyIncome)}
                     icon={TrendingUp}
-                  />
+                  /> */}
                   <InfoRow
                     label="Total Income"
                     value={formatINR(incomeExpenditure?.totalIncome)}
@@ -941,11 +941,11 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                   Family Expenses
                 </p>
                 <div className="space-y-1">
-                  <InfoRow
+                  {/* <InfoRow
                     label="Household Expenses"
                     value={formatINR(familyExpenses?.householdExp)}
                     icon={Wallet}
-                  />
+                  /> */}
                   <InfoRow
                     label="Other Business Expenses"
                     value={formatINR(familyExpenses?.otherBusiExp)}
