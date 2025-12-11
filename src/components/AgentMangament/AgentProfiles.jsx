@@ -19,6 +19,7 @@ import {
 import EditAgentModal from "./EditAgentModal";
 import { updateAgent } from "../../services/AgentService";
 import { syncEditedAgentToHFAndCPV } from "../../services/Addagent";
+import { toggleAgentStatusAcrossSystems } from "../../services/AgentStatusService";
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
@@ -79,6 +80,9 @@ function SkeletonTableRow() {
       </td>
       <td className="py-4 px-4">
         <SkeletonPill width="w-16" />
+      </td>
+      <td className="py-4 px-4">
+        <SkeletonBar width="w-36" />
       </td>
       <td className="py-4 px-4">
         <SkeletonBar width="w-36" />
@@ -150,6 +154,7 @@ export default function AgentProfiles({
   const [limitInput, setLimitInput] = useState(String(limit));
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
+  const [togglingId, setTogglingId] = useState(null); // 🔄 status toggle loading state
   const debounceRef = useRef(null);
 
   useEffect(() => {
@@ -204,31 +209,27 @@ export default function AgentProfiles({
     if (!selectedAgent) return;
 
     try {
-      // formData may contain: status, agent_name, agent_email,
-      // contact_number, password (only changed fields)
       await updateAgent(selectedAgent.agent_id, formData);
 
-      // ✅ Fire-and-forget HF + CPV sync after B2C updateAgent success
-      // Uses the email from the selected row (non-editable) for HF search.
       const hfSyncPayload = {
         agent_email: selectedAgent.agent_email,
-        agent_name: formData.agent_name, // only if changed
-        contact_number: formData.contact_number, // only if changed
-        status: formData.status, // always present from EditAgentModal
-        password: formData.password, // only if changed
+        agent_name: formData.agent_name,
+        contact_number: formData.contact_number,
+        status: formData.status,
+        password: formData.password,
       };
-      // 🚀 Do NOT await; this runs in background
+
+      // background sync
       syncEditedAgentToHFAndCPV(hfSyncPayload);
 
       if (onRefresh) {
-        onRefresh();
+        await onRefresh();
       }
 
       setEditModalOpen(false);
       setSelectedAgent(null);
     } catch (error) {
       console.error("Failed to update agent:", error);
-      // allow modal to show error (EditAgentModal catches thrown error)
       throw error;
     }
   };
@@ -236,6 +237,88 @@ export default function AgentProfiles({
   const handleEditClose = () => {
     setEditModalOpen(false);
     setSelectedAgent(null);
+  };
+
+  /**
+   * 🔁 Status toggle handler
+   * - Optimistic + safe refresh
+   */
+  const handleToggleStatus = async (agent) => {
+    if (!agent?.id || !agent?.email) return;
+    if (togglingId === agent.id) return; // avoid double click
+
+    const nextIsActive = !agent.is_active;
+
+    try {
+      setTogglingId(agent.id);
+
+      await toggleAgentStatusAcrossSystems({
+        bankerId: agent.id,    // first column: banker_id
+        email: agent.email,    // HF search
+        makeActive: nextIsActive,
+      });
+
+      // refresh table from backend to keep all data in sync
+      if (onRefresh) {
+        await onRefresh();
+      }
+    } catch (err) {
+      console.error("Status toggle failed:", err);
+      window.alert(
+        err?.message || "Failed to change status. Please try again."
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  /**
+   * Pretty toggle UI component
+   */
+  const StatusToggle = ({ agent }) => {
+    const isActive = agent.is_active;
+    const isBusy = togglingId === agent.id;
+
+    return (
+      <button
+        type="button"
+        onClick={() => handleToggleStatus(agent)}
+        disabled={isBusy}
+        className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs font-semibold shadow-sm border transition
+          ${
+            isActive
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : "bg-red-50 border-red-200 text-red-700"
+          }
+          ${isBusy ? "opacity-70 cursor-wait" : "hover:shadow-md cursor-pointer"}
+        `}
+        aria-label={`Toggle status for ${agent.name}`}
+      >
+        <span
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition
+            ${isActive ? "bg-emerald-500/80" : "bg-red-500/80"}
+          `}
+        >
+          <span
+            className={`h-4 w-4 rounded-full bg-white shadow transform transition-transform duration-200
+              ${isActive ? "translate-x-4" : "translate-x-1"}
+            `}
+          />
+        </span>
+        <span className="whitespace-nowrap">
+          {isBusy ? "Updating…" : isActive ? "Active" : "Inactive"}
+        </span>
+      </button>
+    );
+  };
+
+  StatusToggle.propTypes = {
+    agent: PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      name: PropTypes.string,
+      email: PropTypes.string,
+      is_active: PropTypes.bool,
+    }).isRequired,
   };
 
   let tableBodyContent;
@@ -246,7 +329,7 @@ export default function AgentProfiles({
   } else if (isEmpty) {
     tableBodyContent = (
       <tr>
-        <td colSpan={8} className="py-12 px-4">
+        <td colSpan={9} className="py-12 px-4">
           <div className="flex flex-col items-center justify-center text-center">
             <p className="text-gray-800 font-semibold text-base">
               No users found
@@ -341,6 +424,11 @@ export default function AgentProfiles({
             <CalendarClock className="h-3.5 w-3.5" />
             {fmtDate(a.created_at)}
           </div>
+        </td>
+
+        {/* 🆕 Status Change Toggle column */}
+        <td className="py-4 px-4 whitespace-nowrap">
+          <StatusToggle agent={a} />
         </td>
       </tr>
     ));
@@ -451,6 +539,14 @@ export default function AgentProfiles({
               <CalendarClock className="h-3.5 w-3.5" />
               Created: {fmtDate(a.created_at)}
             </div>
+
+            {/* 🆕 Mobile Status Toggle */}
+            <div className="mt-3">
+              <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                Status Change
+              </p>
+              <StatusToggle agent={a} />
+            </div>
           </div>
         ))}
       </div>
@@ -483,7 +579,6 @@ export default function AgentProfiles({
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
-      // Already debounced in parent on change, but allow immediate submit if needed
       onSearchTermChange?.(e.target.value);
     }
   };
@@ -552,7 +647,9 @@ export default function AgentProfiles({
                   value={searchTerm}
                   onChange={handleSearchInputChange}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder={SEARCH_PLACEHOLDER[searchField] || "Search"}
+                  placeholder={
+                    SEARCH_PLACEHOLDER[searchField] || "Search"
+                  }
                   className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-9 pr-9 text-sm text-gray-800 shadow-sm
                              focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 outline-none"
                 />
@@ -608,6 +705,9 @@ export default function AgentProfiles({
                     </th>
                     <th className="min-w-[220px] font-semibold uppercase tracking-wide">
                       Created At
+                    </th>
+                    <th className="min-w-[180px] font-semibold uppercase tracking-wide">
+                      Status Change
                     </th>
                   </tr>
                 </thead>
@@ -695,7 +795,9 @@ export default function AgentProfiles({
                   </button>
                   <span className="text-xs sm:text-sm text-gray-600">
                     Page{" "}
-                    <span className="font-semibold text-gray-900">{page}</span>{" "}
+                    <span className="font-semibold text-gray-900">
+                      {page}
+                    </span>{" "}
                     of{" "}
                     <span className="font-semibold text-gray-900">
                       {totalPages}

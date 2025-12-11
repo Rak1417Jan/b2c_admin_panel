@@ -2,6 +2,9 @@
 
 export const organizationlist = [
   { id: 1, organization_name: "Proprietory" },
+  { id: 2, organization_name: "Partnership" },
+  { id: 3, organization_name: "Private Limited" },
+  { id: 4, organization_name: "LLP" },
   // ...add remaining if any
 ];
 

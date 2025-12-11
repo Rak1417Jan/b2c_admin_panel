@@ -825,11 +825,30 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 value={residenceDetail?.pincode}
                 icon={Landmark}
               />
+
+              {/* ✅ New verification flags from applicantDetail */}
+              <InfoRow
+                label="Ration Card Verified"
+                value={boolLabel(applicantDetail?.rationCardVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Residence Address Proof Verified"
+                value={boolLabel(
+                  applicantDetail?.residenceAddressProofVerified
+                )}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Residence Ownership Verified"
+                value={boolLabel(applicantDetail?.residenceOwnershipVerified)}
+                icon={ShieldCheck}
+              />
             </div>
           </Section>
 
           {/* Co-Applicant Details (still commented as in your version) */}
-          {/*
+          {/* 
           <Section title="Co-Applicant Details" icon={Users}>
             ...
           </Section>
@@ -904,6 +923,58 @@ export default function CaseDetailsModal({ open, onClose, caseData }) {
                 label="Pincode"
                 value={businessDetail?.pincode}
                 icon={Landmark}
+              />
+
+              {/* ✅ New business flags & extra fields from businessDetail */}
+              <InfoRow
+                label="Additional Business"
+                value={businessDetail?.additionalBusiness}
+                icon={Briefcase}
+              />
+              <InfoRow
+                label="Organisation Type Verified"
+                value={boolLabel(businessDetail?.orgTypeVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Business Address Verified"
+                value={boolLabel(businessDetail?.businessAddressVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Major Activity Verified"
+                value={boolLabel(businessDetail?.majorActivityVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Activity Type Verified"
+                value={boolLabel(businessDetail?.activityTypeVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Stock Space Verified"
+                value={boolLabel(businessDetail?.stockSpaceVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Stock Value Verified"
+                value={boolLabel(businessDetail?.stockValueVerified)}
+                icon={ShieldCheck}
+              />
+              <InfoRow
+                label="Previous Business Details"
+                value={businessDetail?.previousBusinessDetails}
+                icon={FileText}
+              />
+              <InfoRow
+                label="Activity Category Detail"
+                value={businessDetail?.activityCategoryDetail}
+                icon={Tag}
+              />
+              <InfoRow
+                label="Partner Details"
+                value={businessDetail?.partnerDetails}
+                icon={Users}
               />
             </div>
           </Section>
